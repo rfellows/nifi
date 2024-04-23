@@ -19,117 +19,105 @@
 
 // Define a common utility class used across the entire application.
 (function (root, factory) {
-    if (typeof define === "function" && define.amd) {
-        define([
-            "jquery",
-            "d3",
-            "nf.AuthorizationStorage",
-            "lodash",
-            "moment",
-        ], function ($, d3, nfAuthorizationStorage, _, moment) {
-            return (nf.Common = factory($, d3, nfAuthorizationStorage, _, moment));
-        });
-    } else if (typeof exports === "object" && typeof module === "object") {
-        module.exports = nf.Common = factory(
-            require("jquery"),
-            require("d3"),
-            require("nf.AuthorizationStorage"),
-            require("lodash"),
-            require("moment"),
-        );
+    if (typeof define === 'function' && define.amd) {
+        define(['jquery',
+                'd3',
+                'nf.AuthorizationStorage',
+                'lodash',
+                'moment'],
+            function ($, d3, nfAuthorizationStorage, _, moment) {
+                return (nf.Common = factory($, d3, nfAuthorizationStorage, _, moment));
+            });
+    } else if (typeof exports === 'object' && typeof module === 'object') {
+        module.exports = (nf.Common = factory(require('jquery'),
+            require('d3'),
+            require('nf.AuthorizationStorage'),
+            require('lodash'),
+            require('moment')));
     } else {
-        nf.Common = factory(
-            root.$,
+        nf.Common = factory(root.$,
             root.d3,
             root.nf.AuthorizationStorage,
             root._,
-            root.moment,
-        );
+            root.moment);
     }
-})(this, function ($, d3, nfAuthorizationStorage, _, moment) {
-    "use strict";
+}(this, function ($, d3, nfAuthorizationStorage, _, moment) {
+    'use strict';
 
     $(document).ready(function () {
         // preload the image for the error page - this is preloaded because the system
         // may be unavailable to return the image when the error page is rendered
-        var imgSrc = "images/bg-error.png";
-        $("<img/>")
-            .attr("src", imgSrc)
-            .on("load", function () {
-                $("div.message-pane").css("background-image", imgSrc);
-            });
+        var imgSrc = 'images/bg-error.png';
+        $('<img/>').attr('src', imgSrc).on('load', function () {
+            $('div.message-pane').css('background-image', imgSrc);
+        });
 
         // mouse over for links
-        $(document)
-            .on("mouseenter", "span.link", function () {
-                $(this).addClass("link-over");
-            })
-            .on("mouseleave", "span.link", function () {
-                $(this).removeClass("link-over");
-            });
+        $(document).on('mouseenter', 'span.link', function () {
+            $(this).addClass('link-over');
+        }).on('mouseleave', 'span.link', function () {
+            $(this).removeClass('link-over');
+        });
 
         // setup custom checkbox
-        $(document).on("click", "div.nf-checkbox", function () {
+        $(document).on('click', 'div.nf-checkbox', function () {
             var checkbox = $(this);
-            var transitionToChecked = checkbox.hasClass("checkbox-unchecked");
-            var isDisabled = checkbox.hasClass("disabled");
+            var transitionToChecked = checkbox.hasClass('checkbox-unchecked');
+            var isDisabled = checkbox.hasClass('disabled');
 
             if (isDisabled) {
                 return;
             }
 
             if (transitionToChecked) {
-                checkbox.removeClass("checkbox-unchecked").addClass("checkbox-checked");
+                checkbox.removeClass('checkbox-unchecked').addClass('checkbox-checked');
             } else {
-                checkbox.removeClass("checkbox-checked").addClass("checkbox-unchecked");
+                checkbox.removeClass('checkbox-checked').addClass('checkbox-unchecked');
             }
             // emit a state change event
-            checkbox.trigger("change", {
-                isChecked: transitionToChecked,
+            checkbox.trigger('change', {
+                isChecked: transitionToChecked
             });
         });
 
         // setup click areas for custom checkboxes
-        $(document).on("click", ".nf-checkbox-label", function (e) {
-            $(e.target).parent().find(".nf-checkbox").click();
+        $(document).on('click', '.nf-checkbox-label', function (e) {
+            $(e.target).parent().find('.nf-checkbox').click();
         });
 
+
         // show the loading icon when appropriate
-        $(document)
-            .ajaxStart(function () {
-                // show the loading indicator
-                $("div.loading-container").addClass("ajax-loading");
-            })
-            .ajaxStop(function () {
-                // hide the loading indicator
-                $("div.loading-container").removeClass("ajax-loading");
-            });
+        $(document).ajaxStart(function () {
+            // show the loading indicator
+            $('div.loading-container').addClass('ajax-loading');
+        }).ajaxStop(function () {
+            // hide the loading indicator
+            $('div.loading-container').removeClass('ajax-loading');
+        });
 
         // shows the logout link in the message-pane when appropriate and schedule token refresh
         if (nfAuthorizationStorage.hasToken()) {
-            $("#user-logout-container").css("display", "block");
+            $('#user-logout-container').css('display', 'block');
             nfCommon.scheduleTokenRefresh();
         }
 
         // handle logout
-        $("#user-logout").on("click", function () {
+        $('#user-logout').on('click', function () {
             $.ajax({
-                type: "DELETE",
-                url: "../nifi-api/access/logout",
-            })
-                .done(function () {
-                    nfAuthorizationStorage.removeToken();
-                    window.location = "../nifi/logout";
-                })
-                .fail(nfErrorHandler.handleAjaxError);
+                type: 'DELETE',
+                url: '../nifi-api/access/logout',
+            }).done(function () {
+                nfAuthorizationStorage.removeToken();
+                window.location = '../nifi/logout';
+            }).fail(nfErrorHandler.handleAjaxError);
         });
 
         // handle home
-        $("#user-home").on("click", function () {
+        $('#user-home').on('click', function () {
             if (top !== window) {
-                parent.window.location = "../nifi/";
+                parent.window.location = '../nifi/';
             } else {
-                window.location = "../nifi/";
+                window.location = '../nifi/';
             }
         });
     });
@@ -137,105 +125,84 @@
     // interval for cancelling token refresh when necessary
     var tokenRefreshInterval = null;
 
-    var policyTypeListing = [
-        {
-            text: "view the user interface",
-            value: "flow",
-            description: "Allows users to view the user interface",
-        },
-        {
-            text: "access the controller",
-            value: "controller",
-            description:
-                "Allows users to view/modify the controller including Management Controller Services, Reporting Tasks, Registry Clients, Parameter Providers and nodes in the cluster",
-        },
-        {
-            text: "access parameter contexts",
-            value: "parameter-contexts",
-            description: "Allows users to view/modify Parameter Contexts",
-        },
-        {
-            text: "query provenance",
-            value: "provenance",
-            description:
-                "Allows users to submit a Provenance Search and request Event Lineage",
-        },
-        {
-            text: "access restricted components",
-            value: "restricted-components",
-            description:
-                "Allows users to create/modify restricted components assuming other permissions are sufficient",
-        },
-        {
-            text: "access all policies",
-            value: "policies",
-            description:
-                "Allows users to view/modify the policies for all components",
-        },
-        {
-            text: "access users/user groups",
-            value: "tenants",
-            description: "Allows users to view/modify the users and user groups",
-        },
-        {
-            text: "retrieve site-to-site details",
-            value: "site-to-site",
-            description:
-                "Allows other NiFi instances to retrieve Site-To-Site details of this NiFi",
-        },
-        {
-            text: "view system diagnostics",
-            value: "system",
-            description: "Allows users to view System Diagnostics",
-        },
-        {
-            text: "proxy user requests",
-            value: "proxy",
-            description:
-                "Allows proxy machines to send requests on the behalf of others",
-        },
-        {
-            text: "access counters",
-            value: "counters",
-            description: "Allows users to view/modify Counters",
-        },
-    ];
+    var policyTypeListing = [{
+        text: 'view the user interface',
+        value: 'flow',
+        description: 'Allows users to view the user interface'
+    }, {
+        text: 'access the controller',
+        value: 'controller',
+        description: 'Allows users to view/modify the controller including Management Controller Services, Reporting Tasks, Registry Clients, Parameter Providers and nodes in the cluster'
+    }, {
+        text: 'access parameter contexts',
+        value: 'parameter-contexts',
+        description: 'Allows users to view/modify Parameter Contexts'
+    }, {
+        text: 'query provenance',
+        value: 'provenance',
+        description: 'Allows users to submit a Provenance Search and request Event Lineage'
+    }, {
+        text: 'access restricted components',
+        value: 'restricted-components',
+        description: 'Allows users to create/modify restricted components assuming other permissions are sufficient'
+    }, {
+        text: 'access all policies',
+        value: 'policies',
+        description: 'Allows users to view/modify the policies for all components'
+    }, {
+        text: 'access users/user groups',
+        value: 'tenants',
+        description: 'Allows users to view/modify the users and user groups'
+    }, {
+        text: 'retrieve site-to-site details',
+        value: 'site-to-site',
+        description: 'Allows other NiFi instances to retrieve Site-To-Site details of this NiFi'
+    }, {
+        text: 'view system diagnostics',
+        value: 'system',
+        description: 'Allows users to view System Diagnostics'
+    }, {
+        text: 'proxy user requests',
+        value: 'proxy',
+        description: 'Allows proxy machines to send requests on the behalf of others'
+    }, {
+        text: 'access counters',
+        value: 'counters',
+        description: 'Allows users to view/modify Counters'
+    }];
 
     var nfCommon = {
-        ANONYMOUS_USER_TEXT: "Anonymous user",
+        ANONYMOUS_USER_TEXT: 'Anonymous user',
         autoRefreshInterval: null,
 
         config: {
-            sensitiveText: "Sensitive value set",
+            sensitiveText: 'Sensitive value set',
             tooltipConfig: {
                 style: {
-                    classes: "nifi-tooltip",
+                    classes: 'nifi-tooltip'
                 },
                 show: {
                     solo: true,
                     effect: function (offset) {
                         $(this).slideDown(100);
-                    },
+                    }
                 },
                 hide: {
                     effect: function (offset) {
                         $(this).slideUp(100);
-                    },
+                    }
                 },
                 position: {
-                    at: "top center",
-                    my: "bottom center",
-                },
-            },
+                    at: 'top center',
+                    my: 'bottom center'
+                }
+            }
         },
 
         /**
          * Determines if the current broswer supports SVG.
          */
-        SUPPORTS_SVG:
-            !!document.createElementNS &&
-            !!document.createElementNS("http://www.w3.org/2000/svg", "svg")
-                .createSVGRect,
+        SUPPORTS_SVG: !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect,
 
         /**
          * The current user.
@@ -266,10 +233,7 @@
                 // ensure both versions have at least one token
                 if (aVersionTokens.length >= 1 && bVersionTokens.length >= 1) {
                     // find the number of tokens a and b have in common
-                    var commonTokenLength = Math.min(
-                        aVersionTokens.length,
-                        bVersionTokens.length,
-                    );
+                    var commonTokenLength = Math.min(aVersionTokens.length, bVersionTokens.length);
 
                     // consider all tokens in common
                     for (var i = 0; i < commonTokenLength; i++) {
@@ -279,7 +243,7 @@
                         // if both are non numeric, consider the next token
                         if (isNaN(aVersionSegment) && isNaN(bVersionSegment)) {
                             continue;
-                        } else if (isNaN(aVersionSegment)) {
+                        }  else if (isNaN(aVersionSegment)) {
                             // NaN is considered less
                             return -1;
                         } else if (isNaN(bVersionSegment)) {
@@ -296,19 +260,9 @@
                     if (aVersionTokens.length === bVersionTokens.length) {
                         if (aTokens.length === bTokens.length) {
                             // same version for all tokens so consider the trailing bits (1.1-RC vs 1.1-SNAPSHOT)
-                            var aExtraBits = nfCommon.substringAfterFirst(
-                                aRawVersion,
-                                aTokens[0],
-                            );
-                            var bExtraBits = nfCommon.substringAfterFirst(
-                                bRawVersion,
-                                bTokens[0],
-                            );
-                            return aExtraBits === bExtraBits
-                                ? 0
-                                : aExtraBits > bExtraBits
-                                    ? 1
-                                    : -1;
+                            var aExtraBits = nfCommon.substringAfterFirst(aRawVersion, aTokens[0]);
+                            var bExtraBits = nfCommon.substringAfterFirst(bRawVersion, bTokens[0]);
+                            return aExtraBits === bExtraBits ? 0 : aExtraBits > bExtraBits ? 1 : -1;
                         } else {
                             // in this case, extra bits means it's consider less than no extra bits (1.1 vs 1.1-SNAPSHOT)
                             return bTokens.length - aTokens.length;
@@ -353,35 +307,19 @@
 
             // defines a function for sorting
             var comparer = function (a, b) {
-                if (sortDetails.columnId === "version") {
-                    var aVersion = nfCommon.isDefinedAndNotNull(
-                        a.bundle[sortDetails.columnId],
-                    )
-                        ? a.bundle[sortDetails.columnId]
-                        : "";
-                    var bVersion = nfCommon.isDefinedAndNotNull(
-                        b.bundle[sortDetails.columnId],
-                    )
-                        ? b.bundle[sortDetails.columnId]
-                        : "";
+                if (sortDetails.columnId === 'version') {
+                    var aVersion = nfCommon.isDefinedAndNotNull(a.bundle[sortDetails.columnId]) ? a.bundle[sortDetails.columnId] : '';
+                    var bVersion = nfCommon.isDefinedAndNotNull(b.bundle[sortDetails.columnId]) ? b.bundle[sortDetails.columnId] : '';
                     var versionResult = nfCommon.sortVersion(aVersion, bVersion);
                     return versionResult === 0 ? compareBundle(a, b) : versionResult;
-                } else if (sortDetails.columnId === "type") {
-                    var aType = nfCommon.substringAfterLast(a[sortDetails.columnId], ".");
-                    var bType = nfCommon.substringAfterLast(b[sortDetails.columnId], ".");
+                } else if (sortDetails.columnId === 'type') {
+                    var aType = nfCommon.substringAfterLast(a[sortDetails.columnId], '.');
+                    var bType = nfCommon.substringAfterLast(b[sortDetails.columnId], '.');
                     return aType === bType ? 0 : aType > bType ? 1 : -1;
                 } else {
-                    var aString = nfCommon.isDefinedAndNotNull(a[sortDetails.columnId])
-                        ? a[sortDetails.columnId]
-                        : "";
-                    var bString = nfCommon.isDefinedAndNotNull(b[sortDetails.columnId])
-                        ? b[sortDetails.columnId]
-                        : "";
-                    return aString === bString
-                        ? compareBundle(a, b)
-                        : aString > bString
-                            ? 1
-                            : -1;
+                    var aString = nfCommon.isDefinedAndNotNull(a[sortDetails.columnId]) ? a[sortDetails.columnId] : '';
+                    var bString = nfCommon.isDefinedAndNotNull(b[sortDetails.columnId]) ? b[sortDetails.columnId] : '';
+                    return aString === bString ? compareBundle(a, b) : aString > bString ? 1 : -1;
                 }
             };
 
@@ -400,14 +338,11 @@
          * @returns {string}
          */
         typeFormatter: function (row, cell, value, columnDef, dataContext) {
-            var markup = "";
+            var markup = '';
 
             // restriction
             if (dataContext.restricted === true) {
-                markup +=
-                    '<div class="view-usage-restriction fa fa-shield"></div><span class="hidden row-id">' +
-                    nfCommon.escapeHtml(dataContext.id) +
-                    "</span>";
+                markup += '<div class="view-usage-restriction fa fa-shield"></div><span class="hidden row-id">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
             } else {
                 markup += '<div class="fa"></div>';
             }
@@ -457,22 +392,16 @@
          * @returns {string}
          */
         typeVersionFormatter: function (row, cell, value, columnDef, dataContext) {
-            var markup = "";
+            var markup = '';
 
             if (nfCommon.isDefinedAndNotNull(dataContext.bundle)) {
-                markup +=
-                    '<div style="float: left;">' +
-                    nfCommon.escapeHtml(dataContext.bundle.version) +
-                    "</div>";
+                markup += ('<div style="float: left;">' + nfCommon.escapeHtml(dataContext.bundle.version) + '</div>');
             } else {
                 markup += '<div style="float: left;">unversioned</div>';
             }
 
             if (!nfCommon.isEmpty(dataContext.controllerServiceApis)) {
-                markup +=
-                    '<div class="controller-service-apis fa fa-list" title="Compatible Controller Service" style="margin-left: 4px;"></div><span class="hidden row-id">' +
-                    nfCommon.escapeHtml(dataContext.id) +
-                    "</span>";
+                markup += '<div class="controller-service-apis fa fa-list" title="Compatible Controller Service" style="margin-left: 4px;"></div><span class="hidden row-id">' + nfCommon.escapeHtml(dataContext.id) + '</span>';
             }
 
             markup += '<div class="clear"></div>';
@@ -492,7 +421,7 @@
          */
         instanceTypeFormatter: function (row, cell, value, columnDef, dataContext) {
             if (!dataContext.permissions.canRead) {
-                return "";
+                return '';
             }
 
             return nfCommon.escapeHtml(nfCommon.formatType(dataContext.component));
@@ -508,24 +437,12 @@
          * @param dataContext
          * @returns {string}
          */
-        instanceBundleFormatter: function (
-            row,
-            cell,
-            value,
-            columnDef,
-            dataContext,
-        ) {
+        instanceBundleFormatter: function (row, cell, value, columnDef, dataContext) {
             if (!dataContext.permissions.canRead) {
-                return "";
+                return '';
             }
 
-            return nfCommon.typeBundleFormatter(
-                row,
-                cell,
-                value,
-                columnDef,
-                dataContext.component,
-            );
+            return nfCommon.typeBundleFormatter(row, cell, value, columnDef, dataContext.component);
         },
 
         /**
@@ -543,7 +460,7 @@
          * @param dataContext component datum
          */
         formatClassName: function (dataContext) {
-            return nfCommon.substringAfterLast(dataContext.type, ".");
+            return nfCommon.substringAfterLast(dataContext.type, '.');
         },
 
         /**
@@ -553,8 +470,8 @@
          */
         formatType: function (dataContext) {
             var typeString = nfCommon.formatClassName(dataContext);
-            if (dataContext.bundle.version !== "unversioned") {
-                typeString += " " + dataContext.bundle.version;
+            if (dataContext.bundle.version !== 'unversioned') {
+                typeString += (' ' + dataContext.bundle.version);
             }
             return typeString;
         },
@@ -565,9 +482,9 @@
          * @param bundle
          */
         formatBundle: function (bundle) {
-            var groupString = "";
-            if (bundle.group !== "default") {
-                groupString = bundle.group + " - ";
+            var groupString = '';
+            if (bundle.group !== 'default') {
+                groupString = bundle.group + ' - ';
             }
             return groupString + bundle.artifact;
         },
@@ -604,28 +521,17 @@
                     var now = new Date();
 
                     // get the time remainging plus a little bonus time to reload the token
-                    var timeRemaining =
-                        expirationDate.valueOf() -
-                        now.valueOf() -
-                        30 * nfCommon.MILLIS_PER_SECOND;
+                    var timeRemaining = expirationDate.valueOf() - now.valueOf() - (30 * nfCommon.MILLIS_PER_SECOND);
                     if (timeRemaining < interval) {
-                        if (
-                            $("#current-user").text() !== nfCommon.ANONYMOUS_USER_TEXT &&
-                            !$("#anonymous-user-alert").is(":visible")
-                        ) {
+                        if ($('#current-user').text() !== nfCommon.ANONYMOUS_USER_TEXT && !$('#anonymous-user-alert').is(':visible')) {
                             // if the token will expire before the next interval minus some bonus time, notify the user to re-login
-                            $("#anonymous-user-alert")
-                                .show()
-                                .qtip(
-                                    $.extend({}, nfCommon.config.tooltipConfig, {
-                                        content:
-                                            "Your session will expire soon. Please log in again to avoid being automatically logged out.",
-                                        position: {
-                                            my: "top right",
-                                            at: "bottom left",
-                                        },
-                                    }),
-                                );
+                            $('#anonymous-user-alert').show().qtip($.extend({}, nfCommon.config.tooltipConfig, {
+                                content: 'Your session will expire soon. Please log in again to avoid being automatically logged out.',
+                                position: {
+                                    my: 'top right',
+                                    at: 'bottom left'
+                                }
+                            }));
                         }
                     }
                 }
@@ -642,25 +548,22 @@
          * Sets the anonymous user label.
          */
         setAnonymousUserLabel: function () {
-            var anonymousUserAlert = $("#anonymous-user-alert");
-            if (anonymousUserAlert.data("qtip")) {
-                anonymousUserAlert.qtip("api").destroy(true);
+            var anonymousUserAlert = $('#anonymous-user-alert');
+            if (anonymousUserAlert.data('qtip')) {
+                anonymousUserAlert.qtip('api').destroy(true);
             }
 
             // alert user's of anonymous access
-            anonymousUserAlert.show().qtip(
-                $.extend({}, nfCommon.config.tooltipConfig, {
-                    content:
-                        "You are accessing with limited authority. Log in or request an account to access with additional authority granted to you by an administrator.",
-                    position: {
-                        my: "top right",
-                        at: "bottom left",
-                    },
-                }),
-            );
+            anonymousUserAlert.show().qtip($.extend({}, nfCommon.config.tooltipConfig, {
+                content: 'You are accessing with limited authority. Log in or request an account to access with additional authority granted to you by an administrator.',
+                position: {
+                    my: 'top right',
+                    at: 'bottom left'
+                }
+            }));
 
             // render the anonymous user text
-            $("#current-user").text(nfCommon.ANONYMOUS_USER_TEXT).show();
+            $('#current-user').text(nfCommon.ANONYMOUS_USER_TEXT).show();
         },
 
         /**
@@ -669,12 +572,12 @@
          * @param {string} jwt
          * @return {string}
          */
-        getSessionExpiration: function (jwt) {
+        getSessionExpiration: function(jwt) {
             var sessionExpiration = null;
 
             var jwtPayload = nfCommon.getJwtPayload(jwt);
             if (jwtPayload) {
-                sessionExpiration = jwtPayload["exp"];
+                sessionExpiration = jwtPayload['exp'];
             }
 
             return sessionExpiration;
@@ -685,7 +588,7 @@
          *
          * @return {string}
          */
-        getDefaultExpiration: function () {
+        getDefaultExpiration: function() {
             var now = new Date();
             var expiration = now.getTime() + 43200000;
             var expirationSeconds = Math.round(expiration / 1000);
@@ -703,7 +606,7 @@
             if (nfCommon.isDefinedAndNotNull(jwt)) {
                 var segments = jwt.split(/\./);
                 if (segments.length !== 3) {
-                    return "";
+                    return '';
                 }
 
                 var rawPayload = $.base64.atob(segments[1]);
@@ -750,9 +653,7 @@
          */
         canAccessRestrictedComponents: function () {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                return (
-                    nfCommon.currentUser.restrictedComponentsPermissions.canWrite === true
-                );
+                return nfCommon.currentUser.restrictedComponentsPermissions.canWrite === true;
             } else {
                 return false;
             }
@@ -766,39 +667,25 @@
          */
         canAccessComponentRestrictions: function (explicitRestrictions) {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                if (
-                    nfCommon.currentUser.restrictedComponentsPermissions.canWrite === true
-                ) {
+                if (nfCommon.currentUser.restrictedComponentsPermissions.canWrite === true) {
                     return true;
                 }
 
                 var satisfiesRequiredPermission = function (requiredPermission) {
-                    if (
-                        nfCommon.isEmpty(
-                            nfCommon.currentUser.componentRestrictionPermissions,
-                        )
-                    ) {
+                    if (nfCommon.isEmpty(nfCommon.currentUser.componentRestrictionPermissions)) {
                         return false;
                     }
 
                     var hasPermission = false;
 
-                    $.each(
-                        nfCommon.currentUser.componentRestrictionPermissions,
-                        function (_, componentRestrictionPermission) {
-                            if (
-                                componentRestrictionPermission.requiredPermission.id ===
-                                requiredPermission.id
-                            ) {
-                                if (
-                                    componentRestrictionPermission.permissions.canWrite === true
-                                ) {
-                                    hasPermission = true;
-                                    return false;
-                                }
+                    $.each(nfCommon.currentUser.componentRestrictionPermissions, function (_, componentRestrictionPermission) {
+                        if (componentRestrictionPermission.requiredPermission.id === requiredPermission.id) {
+                            if (componentRestrictionPermission.permissions.canWrite === true) {
+                                hasPermission = true;
+                                return false;
                             }
-                        },
-                    );
+                        }
+                    });
 
                     return hasPermission;
                 };
@@ -809,11 +696,7 @@
                     satisfiesRequiredPermissions = false;
                 } else {
                     $.each(explicitRestrictions, function (_, explicitRestriction) {
-                        if (
-                            !satisfiesRequiredPermission(
-                                explicitRestriction.requiredPermission,
-                            )
-                        ) {
+                        if (!satisfiesRequiredPermission(explicitRestriction.requiredPermission)) {
                             satisfiesRequiredPermissions = false;
                             return false;
                         }
@@ -846,10 +729,7 @@
          */
         canModifyCounters: function () {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                return (
-                    nfCommon.currentUser.countersPermissions.canRead === true &&
-                    nfCommon.currentUser.countersPermissions.canWrite === true
-                );
+                return nfCommon.currentUser.countersPermissions.canRead === true && nfCommon.currentUser.countersPermissions.canWrite === true;
             } else {
                 return false;
             }
@@ -875,10 +755,7 @@
          */
         canModifyTenants: function () {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                return (
-                    nfCommon.currentUser.tenantsPermissions.canRead === true &&
-                    nfCommon.currentUser.tenantsPermissions.canWrite === true
-                );
+                return nfCommon.currentUser.tenantsPermissions.canRead === true && nfCommon.currentUser.tenantsPermissions.canWrite === true;
             } else {
                 return false;
             }
@@ -891,10 +768,7 @@
          */
         canModifyParameterContexts: function () {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                return (
-                    nfCommon.currentUser.parameterContextPermissions.canRead === true &&
-                    nfCommon.currentUser.parameterContextPermissions.canWrite === true
-                );
+                return nfCommon.currentUser.parameterContextPermissions.canRead === true && nfCommon.currentUser.parameterContextPermissions.canWrite === true;
             } else {
                 return false;
             }
@@ -920,10 +794,7 @@
          */
         canModifyPolicies: function () {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                return (
-                    nfCommon.currentUser.policiesPermissions.canRead === true &&
-                    nfCommon.currentUser.policiesPermissions.canWrite === true
-                );
+                return nfCommon.currentUser.policiesPermissions.canRead === true && nfCommon.currentUser.policiesPermissions.canWrite === true;
             } else {
                 return false;
             }
@@ -949,10 +820,7 @@
          */
         canModifyController: function () {
             if (nfCommon.isDefinedAndNotNull(nfCommon.currentUser)) {
-                return (
-                    nfCommon.currentUser.controllerPermissions.canRead === true &&
-                    nfCommon.currentUser.controllerPermissions.canWrite === true
-                );
+                return nfCommon.currentUser.controllerPermissions.canRead === true && nfCommon.currentUser.controllerPermissions.canWrite === true;
             } else {
                 return false;
             }
@@ -980,13 +848,11 @@
          * @argument {string} overStyle     The css style for the over state
          */
         addHoverEffect: function (selector, normalStyle, overStyle) {
-            $(document)
-                .on("mouseenter", selector, function () {
-                    $(this).removeClass(normalStyle).addClass(overStyle);
-                })
-                .on("mouseleave", selector, function () {
-                    $(this).removeClass(overStyle).addClass(normalStyle);
-                });
+            $(document).on('mouseenter', selector, function () {
+                $(this).removeClass(normalStyle).addClass(overStyle);
+            }).on('mouseleave', selector, function () {
+                $(this).removeClass(overStyle).addClass(normalStyle);
+            });
             return $(selector).addClass(normalStyle);
         },
 
@@ -996,15 +862,13 @@
          * @param {HTMLElement} element The DOM element to toggle .scrollable upon.
          */
         toggleScrollable: function (element) {
-            if ($(element).is(":visible")) {
-                if (
-                    element.offsetHeight < element.scrollHeight ||
-                    element.offsetWidth < element.scrollWidth
-                ) {
+            if ($(element).is(':visible')) {
+                if (element.offsetHeight < element.scrollHeight ||
+                    element.offsetWidth < element.scrollWidth) {
                     // your element has overflow
-                    $(element).addClass("scrollable");
+                    $(element).addClass('scrollable');
                 } else {
-                    $(element).removeClass("scrollable");
+                    $(element).removeClass('scrollable');
                 }
             }
         },
@@ -1017,9 +881,9 @@
          */
         determineContrastColor: function (hex) {
             if (parseInt(hex, 16) > 0xffffff / 1.5) {
-                return "#000000";
+                return '#000000';
             }
-            return "#ffffff";
+            return '#ffffff';
         },
 
         /**
@@ -1027,9 +891,9 @@
          */
         updateLogoutLink: function () {
             if (nfAuthorizationStorage.hasToken()) {
-                $("#user-logout-container").css("display", "block");
+                $('#user-logout-container').css('display', 'block');
             } else {
-                $("#user-logout-container").css("display", "none");
+                $('#user-logout-container').css('display', 'none');
             }
         },
 
@@ -1039,7 +903,7 @@
          * @returns {boolean}
          */
         isContentViewConfigured: function () {
-            var contentViewerUrl = $("#nifi-content-viewer-url").text();
+            var contentViewerUrl = $('#nifi-content-viewer-url').text();
             return !nfCommon.isBlank(contentViewerUrl);
         },
 
@@ -1053,15 +917,11 @@
          */
         populateField: function (target, value) {
             if (nfCommon.isUndefined(value) || nfCommon.isNull(value)) {
-                return $("#" + target)
-                    .addClass("unset")
-                    .text("No value set");
-            } else if (value === "") {
-                return $("#" + target)
-                    .addClass("blank")
-                    .text("Empty string set");
+                return $('#' + target).addClass('unset').text('No value set');
+            } else if (value === '') {
+                return $('#' + target).addClass('blank').text('Empty string set');
             } else {
-                return $("#" + target).text(value);
+                return $('#' + target).text(value);
             }
         },
 
@@ -1072,9 +932,7 @@
          * @argument {string} target        The dom Id of the target
          */
         clearField: function (target) {
-            return $("#" + target)
-                .removeClass("unset blank")
-                .text("");
+            return $('#' + target).removeClass('unset blank').text('');
         },
 
         /**
@@ -1086,8 +944,8 @@
         cleanUpTooltips: function (container, tooltipTarget) {
             container.find(tooltipTarget).each(function () {
                 var tip = $(this);
-                if (tip.data("qtip")) {
-                    var api = tip.qtip("api");
+                if (tip.data('qtip')) {
+                    var api = tip.qtip('api');
                     api.destroy(true);
                 }
             });
@@ -1109,35 +967,21 @@
                     tipContent.push(nfCommon.escapeHtml(propertyDescriptor.description));
                 }
                 if (!nfCommon.isBlank(propertyDescriptor.defaultValue)) {
-                    tipContent.push(
-                        "<b>Default value:</b> " +
-                        nfCommon.escapeHtml(propertyDescriptor.defaultValue),
-                    );
+                    tipContent.push('<b>Default value:</b> ' + nfCommon.escapeHtml(propertyDescriptor.defaultValue));
                 }
                 if (!nfCommon.isBlank(propertyDescriptor.supportsEl)) {
-                    tipContent.push(
-                        "<b>Expression language scope:</b> " +
-                        nfCommon.escapeHtml(propertyDescriptor.expressionLanguageScope),
-                    );
+                    tipContent.push('<b>Expression language scope:</b> ' + nfCommon.escapeHtml(propertyDescriptor.expressionLanguageScope));
                 }
                 if (!nfCommon.isBlank(propertyDescriptor.sensitive)) {
-                    tipContent.push(
-                        "<b>Sensitive property:</b> " +
-                        nfCommon.escapeHtml(propertyDescriptor.sensitive),
-                    );
+                    tipContent.push('<b>Sensitive property:</b> ' + nfCommon.escapeHtml(propertyDescriptor.sensitive));
                 }
                 if (!nfCommon.isBlank(propertyDescriptor.identifiesControllerService)) {
                     var formattedType = nfCommon.formatType({
-                        type: propertyDescriptor.identifiesControllerService,
-                        bundle: propertyDescriptor.identifiesControllerServiceBundle,
+                        'type': propertyDescriptor.identifiesControllerService,
+                        'bundle': propertyDescriptor.identifiesControllerServiceBundle
                     });
-                    var formattedBundle = nfCommon.formatBundle(
-                        propertyDescriptor.identifiesControllerServiceBundle,
-                    );
-                    tipContent.push(
-                        "<b>Requires Controller Service:</b> " +
-                        nfCommon.escapeHtml(formattedType + " from " + formattedBundle),
-                    );
+                    var formattedBundle = nfCommon.formatBundle(propertyDescriptor.identifiesControllerServiceBundle);
+                    tipContent.push('<b>Requires Controller Service:</b> ' + nfCommon.escapeHtml(formattedType + ' from ' + formattedBundle));
                 }
             }
 
@@ -1145,26 +989,14 @@
                 if (!nfCommon.isEmpty(propertyHistory.previousValues)) {
                     var history = [];
                     $.each(propertyHistory.previousValues, function (_, previousValue) {
-                        history.push(
-                            "<li>" +
-                            nfCommon.escapeHtml(previousValue.previousValue) +
-                            " - " +
-                            nfCommon.escapeHtml(previousValue.timestamp) +
-                            " (" +
-                            nfCommon.escapeHtml(previousValue.userIdentity) +
-                            ")</li>",
-                        );
+                        history.push('<li>' + nfCommon.escapeHtml(previousValue.previousValue) + ' - ' + nfCommon.escapeHtml(previousValue.timestamp) + ' (' + nfCommon.escapeHtml(previousValue.userIdentity) + ')</li>');
                     });
-                    tipContent.push(
-                        '<b>History:</b><ul class="property-info">' +
-                        history.join("") +
-                        "</ul>",
-                    );
+                    tipContent.push('<b>History:</b><ul class="property-info">' + history.join('') + '</ul>');
                 }
             }
 
             if (tipContent.length > 0) {
-                return tipContent.join("<br/><br/>");
+                return tipContent.join('<br/><br/>');
             } else {
                 return null;
             }
@@ -1176,10 +1008,9 @@
          * @returns {string}
          */
         formatWhitespaceTooltip: function () {
-            return nfCommon.escapeHtml(
-                "The specified value contains leading and/or trailing whitespace character(s). " +
-                "This could produce unexpected results if it was not intentional.",
-            );
+            return nfCommon.escapeHtml('The specified value contains leading and/or trailing whitespace character(s). ' +
+                'This could produce unexpected results if it was not intentional.');
+
         },
 
         /**
@@ -1192,7 +1023,7 @@
          *
          * @argument {string} value     The value to check
          */
-        hasLeadTrailWhitespace: function (value) {
+        hasLeadTrailWhitespace : function (value) {
             if (nfCommon.isBlank(value)) {
                 return false;
             }
@@ -1206,13 +1037,7 @@
          * @argument {string} value     The value of the property
          */
         formatProperty: function (name, value) {
-            return (
-                '<div><span class="label">' +
-                nfCommon.formatValue(name) +
-                ": </span>" +
-                nfCommon.formatValue(value) +
-                "</div>"
-            );
+            return '<div><span class="label">' + nfCommon.formatValue(name) + ': </span>' + nfCommon.formatValue(value) + '</div>';
         },
 
         /**
@@ -1222,7 +1047,7 @@
          */
         formatValue: function (value) {
             if (nfCommon.isDefinedAndNotNull(value)) {
-                if (value === "") {
+                if (value === '') {
                     return '<span class="blank" style="font-size: 13px; padding-top: 2px;">Empty string set</span>';
                 } else {
                     return nfCommon.escapeHtml(value);
@@ -1240,12 +1065,12 @@
          */
         escapeHtml: (function () {
             var entityMap = {
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#39;",
-                "/": "&#x2f;",
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+                '/': '&#x2f;'
             };
 
             return function (string) {
@@ -1254,10 +1079,10 @@
                         return entityMap[s];
                     });
                 } else {
-                    return "";
+                    return '';
                 }
             };
-        })(),
+        }()),
 
         /**
          * Formats the specified value, so new lines are represented as \<br\>
@@ -1268,9 +1093,9 @@
          */
         formatNewLines: function (value) {
             if (nfCommon.isDefinedAndNotNull(value)) {
-                return value.replaceAll(/[\n]/g, "<br>");
+            	return value.replaceAll(/[\n]/g, "<br>");
             } else {
-                return "";
+                return '';
             }
         },
 
@@ -1349,7 +1174,7 @@
             if ($.isArray(array)) {
                 var ul = $('<ul class="result"></ul>');
                 $.each(array, function (_, item) {
-                    var li = $("<li></li>").appendTo(ul);
+                    var li = $('<li></li>').appendTo(ul);
                     if (item instanceof jQuery) {
                         li.append(item);
                     } else {
@@ -1371,7 +1196,7 @@
          * @argument {string} strToFind The substring to find
          */
         substringAfterLast: function (str, strToFind) {
-            var result = "";
+            var result = '';
             var indexOfStrToFind = str.lastIndexOf(strToFind);
             if (indexOfStrToFind >= 0) {
                 var indexAfterStrToFind = indexOfStrToFind + strToFind.length;
@@ -1391,7 +1216,7 @@
          * @argument {string} strToFind The substring to find
          */
         substringAfterFirst: function (str, strToFind) {
-            var result = "";
+            var result = '';
             var indexOfStrToFind = str.indexOf(strToFind);
             if (indexOfStrToFind >= 0) {
                 var indexAfterStrToFind = indexOfStrToFind + strToFind.length;
@@ -1411,7 +1236,7 @@
          * @argument {string} strToFind The substring to find
          */
         substringBeforeLast: function (str, strToFind) {
-            var result = "";
+            var result = '';
             var indexOfStrToFind = str.lastIndexOf(strToFind);
             if (indexOfStrToFind >= 0) {
                 result = str.substr(0, indexOfStrToFind);
@@ -1428,12 +1253,12 @@
          * @argument {string} strToFind The substring to find
          */
         substringBeforeFirst: function (str, strToFind) {
-            var result = "";
+            var result = '';
             var indexOfStrToFind = str.indexOf(strToFind);
             if (indexOfStrToFind >= 0) {
                 result = str.substr(0, indexOfStrToFind);
             }
-            return result;
+            return result
         },
 
         /**
@@ -1444,9 +1269,9 @@
          */
         setCursor: function (domId, isMouseOver) {
             if (isMouseOver) {
-                $("#" + domId).addClass("pointer");
+                $('#' + domId).addClass('pointer');
             } else {
-                $("#" + domId).removeClass("pointer");
+                $('#' + domId).removeClass('pointer');
             }
         },
 
@@ -1461,53 +1286,39 @@
         /**
          * Constants for combo options.
          */
-        loadBalanceStrategyOptions: [
-            {
-                text: "Do not load balance",
-                value: "DO_NOT_LOAD_BALANCE",
-                description:
-                    "Do not load balance FlowFiles between nodes in the cluster.",
-            },
-            {
-                text: "Partition by attribute",
-                value: "PARTITION_BY_ATTRIBUTE",
-                description:
-                    "Determine which node to send a given FlowFile to based on the value of a user-specified FlowFile Attribute." +
-                    " All FlowFiles that have the same value for said Attribute will be sent to the same node in the cluster.",
-            },
-            {
-                text: "Round robin",
-                value: "ROUND_ROBIN",
-                description:
-                    "FlowFiles will be distributed to nodes in the cluster in a Round-Robin fashion. However, if a node in the cluster is not able to receive data as fast as other nodes," +
-                    " that node may be skipped in one or more iterations in order to maximize throughput of data distribution across the cluster.",
-            },
-            {
-                text: "Single node",
-                value: "SINGLE_NODE",
-                description:
-                    "All FlowFiles will be sent to the same node. Which node they are sent to is not defined.",
-            },
-        ],
+        loadBalanceStrategyOptions: [{
+                text: 'Do not load balance',
+                value: 'DO_NOT_LOAD_BALANCE',
+                description: 'Do not load balance FlowFiles between nodes in the cluster.'
+            }, {
+                text: 'Partition by attribute',
+                value: 'PARTITION_BY_ATTRIBUTE',
+                description: 'Determine which node to send a given FlowFile to based on the value of a user-specified FlowFile Attribute.'
+                                + ' All FlowFiles that have the same value for said Attribute will be sent to the same node in the cluster.'
+            }, {
+                text: 'Round robin',
+                value: 'ROUND_ROBIN',
+                description: 'FlowFiles will be distributed to nodes in the cluster in a Round-Robin fashion. However, if a node in the cluster is not able to receive data as fast as other nodes,'
+                                + ' that node may be skipped in one or more iterations in order to maximize throughput of data distribution across the cluster.'
+            }, {
+                text: 'Single node',
+                value: 'SINGLE_NODE',
+                description: 'All FlowFiles will be sent to the same node. Which node they are sent to is not defined.'
+        }],
 
-        loadBalanceCompressionOptions: [
-            {
-                text: "Do not compress",
-                value: "DO_NOT_COMPRESS",
-                description: "FlowFiles will not be compressed",
-            },
-            {
-                text: "Compress attributes only",
-                value: "COMPRESS_ATTRIBUTES_ONLY",
-                description:
-                    "FlowFiles' attributes will be compressed, but the FlowFiles' contents will not be",
-            },
-            {
-                text: "Compress attributes and content",
-                value: "COMPRESS_ATTRIBUTES_AND_CONTENT",
-                description: "FlowFiles' attributes and content will be compressed",
-            },
-        ],
+        loadBalanceCompressionOptions: [{
+                text: 'Do not compress',
+                value: 'DO_NOT_COMPRESS',
+                description: 'FlowFiles will not be compressed'
+            }, {
+                text: 'Compress attributes only',
+                value: 'COMPRESS_ATTRIBUTES_ONLY',
+                description: 'FlowFiles\' attributes will be compressed, but the FlowFiles\' contents will not be'
+            }, {
+                text: 'Compress attributes and content',
+                value: 'COMPRESS_ATTRIBUTES_AND_CONTENT',
+                description: 'FlowFiles\' attributes and content will be compressed'
+        }],
 
         /**
          * Formats the specified duration.
@@ -1541,18 +1352,17 @@
             duration = Math.floor(duration % nfCommon.MILLIS_PER_SECOND);
 
             // format the time
-            var time =
-                nfCommon.pad(hours, 2, "0") +
-                ":" +
-                nfCommon.pad(minutes, 2, "0") +
-                ":" +
-                nfCommon.pad(seconds, 2, "0") +
-                "." +
-                nfCommon.pad(duration, 3, "0");
+            var time = nfCommon.pad(hours, 2, '0') +
+                ':' +
+                nfCommon.pad(minutes, 2, '0') +
+                ':' +
+                nfCommon.pad(seconds, 2, '0') +
+                '.' +
+                nfCommon.pad(duration, 3, '0');
 
             // only include days if appropriate
             if (days > 0) {
-                return days + " days and " + time;
+                return days + ' days and ' + time;
             } else {
                 return time;
             }
@@ -1566,9 +1376,9 @@
          */
         formatPredictedDuration: function (duration) {
             if (duration === 0) {
-                return "now";
+                return 'now';
             }
-            return moment.duration(duration, "ms").humanize();
+            return moment.duration(duration, 'ms').humanize();
         },
 
         /**
@@ -1621,10 +1431,10 @@
          * @param {integer} integer
          */
         formatInteger: function (integer) {
-            var string = integer + "";
+            var string = integer + '';
             var regex = /(\d+)(\d{3})/;
             while (regex.test(string)) {
-                string = string.replace(regex, "$1" + "," + "$2");
+                string = string.replace(regex, '$1' + ',' + '$2');
             }
             return nfCommon.escapeHtml(string);
         },
@@ -1636,9 +1446,9 @@
          */
         formatFloat: function (f) {
             if (nfCommon.isUndefinedOrNull(f)) {
-                return 0.0 + "";
+                return 0.00 + '';
             }
-            return f.toFixed(2) + "";
+            return f.toFixed(2) + '';
         },
 
         /**
@@ -1652,7 +1462,7 @@
          * @returns {string}
          */
         pad: function (value, width, character) {
-            var s = value + "";
+            var s = value + '';
 
             // pad until wide enough
             while (s.length < width) {
@@ -1669,21 +1479,19 @@
          * @returns {String}
          */
         formatDateTime: function (date) {
-            return (
-                nfCommon.pad(date.getMonth() + 1, 2, "0") +
-                "/" +
-                nfCommon.pad(date.getDate(), 2, "0") +
-                "/" +
-                nfCommon.pad(date.getFullYear(), 2, "0") +
-                " " +
-                nfCommon.pad(date.getHours(), 2, "0") +
-                ":" +
-                nfCommon.pad(date.getMinutes(), 2, "0") +
-                ":" +
-                nfCommon.pad(date.getSeconds(), 2, "0") +
-                "." +
-                nfCommon.pad(date.getMilliseconds(), 3, "0")
-            );
+            return nfCommon.pad(date.getMonth() + 1, 2, '0') +
+                '/' +
+                nfCommon.pad(date.getDate(), 2, '0') +
+                '/' +
+                nfCommon.pad(date.getFullYear(), 2, '0') +
+                ' ' +
+                nfCommon.pad(date.getHours(), 2, '0') +
+                ':' +
+                nfCommon.pad(date.getMinutes(), 2, '0') +
+                ':' +
+                nfCommon.pad(date.getSeconds(), 2, '0') +
+                '.' +
+                nfCommon.pad(date.getMilliseconds(), 3, '0');
         },
 
         /**
@@ -1699,10 +1507,10 @@
             if (!nfCommon.isDefinedAndNotNull(rawDateTime)) {
                 return new Date();
             }
-            if (rawDateTime === "No value set") {
+            if (rawDateTime === 'No value set') {
                 return new Date();
             }
-            if (rawDateTime === "Empty string set") {
+            if (rawDateTime === 'Empty string set') {
                 return new Date();
             }
 
@@ -1755,25 +1563,9 @@
             // detect if there is millis
             var seconds = duration[2].split(/\./);
             if (seconds.length === 2) {
-                return new Date(
-                    1970,
-                    0,
-                    1,
-                    parseInt(duration[0], 10),
-                    parseInt(duration[1], 10),
-                    parseInt(seconds[0], 10),
-                    parseInt(seconds[1], 10),
-                ).getTime();
+                return new Date(1970, 0, 1, parseInt(duration[0], 10), parseInt(duration[1], 10), parseInt(seconds[0], 10), parseInt(seconds[1], 10)).getTime();
             } else {
-                return new Date(
-                    1970,
-                    0,
-                    1,
-                    parseInt(duration[0], 10),
-                    parseInt(duration[1], 10),
-                    parseInt(duration[2], 10),
-                    0,
-                ).getTime();
+                return new Date(1970, 0, 1, parseInt(duration[0], 10), parseInt(duration[1], 10), parseInt(duration[2], 10), 0).getTime();
             }
         },
 
@@ -1785,16 +1577,16 @@
          */
         parseSize: function (rawSize) {
             var tokens = rawSize.split(/ /);
-            var size = parseFloat(tokens[0].replace(/,/g, ""));
+            var size = parseFloat(tokens[0].replace(/,/g, ''));
             var units = tokens[1];
 
-            if (units === "KB") {
+            if (units === 'KB') {
                 return size * 1024;
-            } else if (units === "MB") {
+            } else if (units === 'MB') {
                 return size * 1024 * 1024;
-            } else if (units === "GB") {
+            } else if (units === 'GB') {
                 return size * 1024 * 1024 * 1024;
-            } else if (units === "TB") {
+            } else if (units === 'TB') {
                 return size * 1024 * 1024 * 1024 * 1024;
             } else {
                 return size;
@@ -1817,7 +1609,7 @@
             }
 
             // convert the count to an integer
-            var intCount = parseInt(count[0].replace(/,/g, ""), 10);
+            var intCount = parseInt(count[0].replace(/,/g, ''), 10);
 
             // ensure it was parsable as an integer
             if (isNaN(intCount)) {
@@ -1850,7 +1642,7 @@
          * @argument {object} obj   The object to test
          */
         isUndefined: function (obj) {
-            return typeof obj === "undefined";
+            return typeof obj === 'undefined';
         },
 
         /**
@@ -1859,9 +1651,7 @@
          * @argument {string} str   The string to test
          */
         isBlank: function (str) {
-            return (
-                nfCommon.isUndefined(str) || nfCommon.isNull(str) || $.trim(str) === ""
-            );
+            return nfCommon.isUndefined(str) || nfCommon.isNull(str) || $.trim(str) === '';
         },
 
         /**
@@ -1913,10 +1703,7 @@
             if ($.isArray(bulletins) && $.isArray(otherBulletins)) {
                 if (bulletins.length === otherBulletins.length) {
                     for (var i = 0; i < bulletins.length; i++) {
-                        if (
-                            bulletins[i].id !== otherBulletins[i].id ||
-                            bulletins[i].canRead !== otherBulletins[i].canRead
-                        ) {
+                        if (bulletins[i].id !== otherBulletins[i].id || bulletins[i].canRead !== otherBulletins[i].canRead) {
                             return true;
                         }
                     }
@@ -1942,33 +1729,22 @@
                     var bulletin = bulletinEntity.bulletin;
 
                     // format the node address
-                    var nodeAddress = "";
+                    var nodeAddress = '';
                     if (nfCommon.isDefinedAndNotNull(bulletin.nodeAddress)) {
-                        nodeAddress =
-                            "-&nbsp;" +
-                            nfCommon.escapeHtml(bulletin.nodeAddress) +
-                            "&nbsp;-&nbsp;";
+                        nodeAddress = '-&nbsp;' + nfCommon.escapeHtml(bulletin.nodeAddress) + '&nbsp;-&nbsp;';
                     }
 
                     // set the bulletin message (treat as text)
-                    var bulletinMessage = $("<pre></pre>")
-                        .css({
-                            "white-space": "pre-wrap",
-                        })
-                        .text(bulletin.message);
+                    var bulletinMessage = $('<pre></pre>').css({
+                        'white-space': 'pre-wrap'
+                    }).text(bulletin.message);
 
                     // create the bulletin message
-                    var formattedBulletin = $(
-                        "<div>" +
-                        nfCommon.escapeHtml(bulletin.timestamp) +
-                        "&nbsp;" +
-                        nodeAddress +
-                        "&nbsp;" +
-                        "<b>" +
-                        nfCommon.escapeHtml(bulletin.level) +
-                        "</b>&nbsp;" +
-                        "</div>",
-                    ).append(bulletinMessage);
+                    var formattedBulletin = $('<div>' +
+                        nfCommon.escapeHtml(bulletin.timestamp) + '&nbsp;' +
+                        nodeAddress + '&nbsp;' +
+                        '<b>' + nfCommon.escapeHtml(bulletin.level) + '</b>&nbsp;' +
+                        '</div>').append(bulletinMessage);
 
                     formattedBulletinEntities.push(formattedBulletin);
                 }
@@ -1986,15 +1762,11 @@
             var formattedControllerServiceApis = [];
             $.each(controllerServiceApis, function (i, controllerServiceApi) {
                 var formattedType = nfCommon.formatType({
-                    type: controllerServiceApi.type,
-                    bundle: controllerServiceApi.bundle,
+                    'type': controllerServiceApi.type,
+                    'bundle': controllerServiceApi.bundle
                 });
-                var formattedBundle = nfCommon.formatBundle(
-                    controllerServiceApi.bundle,
-                );
-                formattedControllerServiceApis.push(
-                    $("<div></div>").text(formattedType + " from " + formattedBundle),
-                );
+                var formattedBundle = nfCommon.formatBundle(controllerServiceApi.bundle);
+                formattedControllerServiceApis.push($('<div></div>').text(formattedType + ' from ' + formattedBundle));
             });
             return formattedControllerServiceApis;
         },
@@ -2013,17 +1785,9 @@
 
             var formattedGarbageCollections = [];
             $.each(garbageCollections, function (_, garbageCollection) {
-                var name = $('<span style="font-weight: bold;"></span>').text(
-                    garbageCollection.name,
-                );
-                var stats = $("<span></span>").text(
-                    " - " +
-                    garbageCollection.collectionCount +
-                    " times (" +
-                    garbageCollection.collectionTime +
-                    ")",
-                );
-                var gc = $("<div></div>").append(name).append(stats);
+                var name = $('<span style="font-weight: bold;"></span>').text(garbageCollection.name);
+                var stats = $('<span></span>').text(' - ' + garbageCollection.collectionCount + ' times (' + garbageCollection.collectionTime + ')');
+                var gc = $('<div></div>').append(name).append(stats);
                 formattedGarbageCollections.push(gc);
             });
             return formattedGarbageCollections;
@@ -2057,9 +1821,7 @@
          * @returns {String}         The component name if it can be read, otherwise entity id
          */
         getComponentName: function (entity) {
-            return entity.permissions.canRead === true
-                ? entity.component.name
-                : entity.id;
+            return entity.permissions.canRead === true ? entity.component.name : entity.id;
         },
 
         /**
@@ -2073,9 +1835,7 @@
             var matchedOption = options.find(function (option) {
                 return option.value === value;
             });
-            return nfCommon.isDefinedAndNotNull(matchedOption)
-                ? matchedOption.text
-                : undefined;
+            return nfCommon.isDefinedAndNotNull(matchedOption) ? matchedOption.text : undefined;
         },
 
         /**
@@ -2096,13 +1856,9 @@
          * @param {string} key        The key path to return
          * @returns {object/literal}  The value of the key passed or undefined/null
          */
-        getKeyValue: function (obj, key) {
-            return key.split(".").reduce(function (o, x) {
-                return typeof o === undefined || o === null
-                    ? o
-                    : typeof o[x] == "function"
-                        ? o[x]()
-                        : o[x];
+        getKeyValue : function(obj,key){
+            return key.split('.').reduce(function(o,x){
+                return(typeof o === undefined || o === null)? o : (typeof o[x] == 'function')?o[x]():o[x];
             }, obj);
         },
 
@@ -2126,49 +1882,38 @@
          * @param Array
          * @returns {Array}
          */
-        sortParameterContextsAlphabeticallyBasedOnAuthorization: function (
-            parameterContexts,
-        ) {
-            var authorizedParameterContexts = parameterContexts.filter(
-                function (parameterContext) {
-                    return parameterContext.permissions.canRead;
-                },
-            );
+        sortParameterContextsAlphabeticallyBasedOnAuthorization: function (parameterContexts) {
+            var authorizedParameterContexts = parameterContexts.filter(function (parameterContext) {
+                return parameterContext.permissions.canRead;
+            });
 
-            var unauthorizedParameterContexts = parameterContexts.filter(
-                function (parameterContext) {
-                    return !parameterContext.permissions.canRead;
-                },
-            );
+            var unauthorizedParameterContexts = parameterContexts.filter(function (parameterContext) {
+                return !parameterContext.permissions.canRead;
+            });
 
             // sort alphabetically
-            var sortedAuthorizedParameterContexts = authorizedParameterContexts.sort(
-                function (a, b) {
-                    if (a.component.name < b.component.name) {
-                        return -1;
-                    }
-                    if (a.component.name > b.component.name) {
-                        return 1;
-                    }
-                    return 0;
-                },
-            );
+            var sortedAuthorizedParameterContexts = authorizedParameterContexts.sort(function (a, b) {
+                if (a.component.name < b.component.name) {
+                    return -1;
+                }
+                if (a.component.name > b.component.name) {
+                    return 1;
+                }
+                return 0;
+            });
 
             // sort alphabetically
-            var sortedUnauthorizedParameterContexts =
-                unauthorizedParameterContexts.sort(function (a, b) {
-                    if (a.id < b.id) {
-                        return -1;
-                    }
-                    if (a.id > b.id) {
-                        return 1;
-                    }
-                    return 0;
-                });
+            var sortedUnauthorizedParameterContexts = unauthorizedParameterContexts.sort(function (a, b) {
+                if (a.id < b.id) {
+                    return -1;
+                }
+                if (a.id > b.id) {
+                    return 1;
+                }
+                return 0;
+            });
 
-            return sortedAuthorizedParameterContexts.concat(
-                sortedUnauthorizedParameterContexts,
-            );
+            return sortedAuthorizedParameterContexts.concat(sortedUnauthorizedParameterContexts);
         },
 
         /**
@@ -2187,8 +1932,9 @@
          */
         getAutoRefreshInterval: function () {
             return nfCommon.config.autoRefreshInterval;
-        },
+        }
+
     };
 
     return nfCommon;
-});
+}));
