@@ -22,8 +22,8 @@ import {
     ChangeVersionDialogRequest,
     ComponentEntity,
     ConfirmStopVersionControlRequest,
-    CopiedSnippet,
     CopyRequest,
+    CopyResponseEntity,
     CreateComponentRequest,
     CreateComponentResponse,
     CreateConnection,
@@ -502,7 +502,7 @@ export const moveComponents = createAction(
 
 export const copy = createAction(`${CANVAS_PREFIX} Copy`, props<{ request: CopyRequest }>());
 
-export const copySuccess = createAction(`${CANVAS_PREFIX} Copy Success`, props<{ copiedSnippet: CopiedSnippet }>());
+export const copySuccess = createAction(`${CANVAS_PREFIX} Copy Success`, props<{ response: CopyResponseEntity }>());
 
 export const paste = createAction(`${CANVAS_PREFIX} Paste`, props<{ request: PasteRequest }>());
 

@@ -30,7 +30,6 @@ import {
     navigateToEditCurrentProcessGroup,
     navigateToManageComponentPolicies,
     openChangeColorDialog,
-    paste,
     reloadFlow,
     selectComponents,
     startComponents,
@@ -40,12 +39,12 @@ import {
 } from '../state/flow/flow.actions';
 import {
     ChangeColorRequest,
-    CopyComponentRequest,
+    CopyRequest,
+    CopyRequestEntity,
     DeleteComponentRequest,
     DisableComponentRequest,
     EnableComponentRequest,
     MoveComponentRequest,
-    PasteRequest,
     SelectedComponent,
     StartComponentRequest,
     StopComponentRequest
@@ -141,43 +140,61 @@ export class CanvasActionsService {
             action: (selection: d3.Selection<any, any, any, any>) => {
                 const origin = this.canvasUtils.getOrigin(selection);
                 const dimensions = this.canvasView.getSelectionBoundingClientRect(selection);
+                const copyRequestEntity: CopyRequestEntity = {};
+                const request: CopyRequest = {
+                    origin,
+                    dimensions,
+                    copyRequestEntity
+                };
 
-                const components: CopyComponentRequest[] = [];
                 selection.each((d) => {
-                    components.push({
-                        id: d.id,
-                        type: d.type,
-                        uri: d.uri,
-                        entity: d
-                    });
+                    switch (d.type) {
+                        case ComponentType.Processor:
+                            if (!copyRequestEntity.processors) {
+                                copyRequestEntity.processors = [];
+                            }
+                            copyRequestEntity.processors.push(d.id);
+                            break;
+                        case ComponentType.ProcessGroup:
+                            if (!copyRequestEntity.processGroups) {
+                                copyRequestEntity.processGroups = [];
+                            }
+                            copyRequestEntity.processGroups.push(d.id);
+                            break;
+                        case ComponentType.Connection:
+                            if (!copyRequestEntity.connections) {
+                                copyRequestEntity.connections = [];
+                            }
+                            copyRequestEntity.connections.push(d.id);
+                            break;
+                        case ComponentType.RemoteProcessGroup:
+                            if (!copyRequestEntity.remoteProcessGroups) {
+                                copyRequestEntity.remoteProcessGroups = [];
+                            }
+                            copyRequestEntity.remoteProcessGroups.push(d.id);
+                            break;
+                        case ComponentType.InputPort:
+                            if (!copyRequestEntity.inputPorts) {
+                                copyRequestEntity.inputPorts = [];
+                            }
+                            copyRequestEntity.inputPorts.push(d.id);
+                            break;
+                        case ComponentType.OutputPort:
+                            if (!copyRequestEntity.outputPorts) {
+                                copyRequestEntity.outputPorts = [];
+                            }
+                            copyRequestEntity.outputPorts.push(d.id);
+                            break;
+                        case ComponentType.Label:
+                            if (!copyRequestEntity.labels) {
+                                copyRequestEntity.labels = [];
+                            }
+                            copyRequestEntity.labels.push(d.id);
+                            break;
+                    }
                 });
 
-                this.store.dispatch(
-                    copy({
-                        request: {
-                            components,
-                            origin,
-                            dimensions
-                        }
-                    })
-                );
-            }
-        },
-        paste: {
-            id: 'paste',
-            condition: () => {
-                return this.canvasUtils.isPastable();
-            },
-            action: (selection, extraArgs) => {
-                const pasteRequest: PasteRequest = {};
-                if (extraArgs?.pasteLocation) {
-                    pasteRequest.pasteLocation = extraArgs.pasteLocation;
-                }
-                this.store.dispatch(
-                    paste({
-                        request: pasteRequest
-                    })
-                );
+                this.store.dispatch(copy({ request }));
             }
         },
         selectAll: {

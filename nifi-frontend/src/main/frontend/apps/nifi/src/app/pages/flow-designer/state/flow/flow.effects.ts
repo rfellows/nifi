@@ -41,7 +41,7 @@ import {
     throttleTime
 } from 'rxjs';
 import {
-    CopyComponentRequest,
+    CopyRequestContext,
     CreateConnectionDialogRequest,
     CreateProcessGroupDialogRequest,
     DeleteComponentResponse,
@@ -49,6 +49,8 @@ import {
     ImportFromRegistryDialogRequest,
     LoadProcessGroupResponse,
     MoveComponentRequest,
+    PastePayloadEntity,
+    PasteRequestContext,
     SaveVersionDialogRequest,
     SaveVersionRequest,
     SelectedComponent,
@@ -67,9 +69,9 @@ import { Action, Store } from '@ngrx/store';
 import {
     selectAnySelectedComponentIds,
     selectChangeVersionRequest,
-    selectCopiedSnippet,
     selectCurrentParameterContext,
     selectCurrentProcessGroupId,
+    selectCurrentProcessGroupRevision,
     selectFlowLoadingStatus,
     selectInputPort,
     selectMaxZIndex,
@@ -136,7 +138,6 @@ import { ClusterConnectionService } from '../../../../service/cluster-connection
 import { ExtensionTypesService } from '../../../../service/extension-types.service';
 import { ChangeComponentVersionDialog } from '../../../../ui/common/change-component-version-dialog/change-component-version-dialog';
 import { SnippetService } from '../../service/snippet.service';
-import { selectTransform } from '../transform/transform.selectors';
 import { EditLabel } from '../../ui/canvas/items/label/edit-label/edit-label.component';
 import { ErrorHelper } from '../../../../service/error-helper.service';
 import { selectConnectedStateChanged } from '../../../../state/cluster-summary/cluster-summary.selectors';
@@ -158,6 +159,8 @@ import { selectDocumentVisibilityState } from '../../../../state/document-visibi
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DocumentVisibility } from '../../../../state/document-visibility';
 import { ErrorContextKey } from '../../../../state/error';
+import { CopyPasteService } from '../../service/copy-paste.service';
+import { selectTransform } from '../transform/transform.selectors';
 
 @Injectable()
 export class FlowEffects {
@@ -183,7 +186,8 @@ export class FlowEffects {
         private propertyTableHelperService: PropertyTableHelperService,
         private parameterHelperService: ParameterHelperService,
         private extensionTypesService: ExtensionTypesService,
-        private errorHelper: ErrorHelper
+        private errorHelper: ErrorHelper,
+        private copyPasteService: CopyPasteService
     ) {
         this.store
             .select(selectDocumentVisibilityState)
@@ -2225,19 +2229,43 @@ export class FlowEffects {
             map((action) => action.request),
             concatLatestFrom(() => this.store.select(selectCurrentProcessGroupId)),
             switchMap(([request, processGroupId]) => {
-                const components: CopyComponentRequest[] = request.components;
-                const snippet = this.snippetService.marshalSnippet(components, processGroupId);
-                return of(
-                    FlowActions.copySuccess({
-                        copiedSnippet: {
-                            snippet,
-                            dimensions: request.dimensions,
-                            origin: request.origin
-                        }
-                    })
+                const copyRequest: CopyRequestContext = {
+                    ...request,
+                    processGroupId
+                };
+                return from(this.copyPasteService.copy(copyRequest)).pipe(
+                    switchMap((response) => {
+                        return from(navigator.clipboard.writeText(JSON.stringify(response, null, 2))).pipe(
+                            switchMap(() => {
+                                return of(
+                                    FlowActions.copySuccess({
+                                        response
+                                    })
+                                );
+                            }),
+                            catchError(() => {
+                                return of(FlowActions.flowSnackbarError({ error: 'Copy failed' }));
+                            })
+                        );
+                    }),
+                    catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
                 );
             })
         )
+    );
+
+    copySuccess$ = createEffect(
+        () =>
+            this.actions$.pipe(
+                ofType(FlowActions.copySuccess),
+                map((action) => action.response),
+                tap((response) => {
+                    console.log('copied!', response);
+                    // TODO: toast notification indicating copy was successful???
+                    // TODO: may or may not need to store the copy response in the store.
+                })
+            ),
+        { dispatch: false }
     );
 
     paste$ = createEffect(() =>
@@ -2245,45 +2273,74 @@ export class FlowEffects {
             ofType(FlowActions.paste),
             map((action) => action.request),
             concatLatestFrom(() => [
-                this.store.select(selectCopiedSnippet).pipe(isDefinedAndNotNull()),
                 this.store.select(selectCurrentProcessGroupId),
+                this.store.select(selectCurrentProcessGroupRevision),
                 this.store.select(selectTransform)
             ]),
-            switchMap(([request, copiedSnippet, processGroupId, transform]) =>
-                from(this.snippetService.createSnippet(copiedSnippet.snippet)).pipe(
-                    switchMap((response) => {
-                        let pasteLocation = request.pasteLocation;
-                        const snippetOrigin = copiedSnippet.origin;
-                        const dimensions = copiedSnippet.dimensions;
-
-                        if (!pasteLocation) {
-                            // if the copied snippet is from a different group or the original items are not in the viewport, center the pasted snippet
-                            if (
-                                copiedSnippet.snippet.parentGroupId != processGroupId ||
-                                !this.canvasView.isBoundingBoxInViewport(dimensions, false)
-                            ) {
-                                const center = this.canvasView.getCenterForBoundingBox(dimensions);
-                                pasteLocation = {
-                                    x: center[0] - transform.translate.x / transform.scale,
-                                    y: center[1] - transform.translate.y / transform.scale
-                                };
-                            } else {
-                                pasteLocation = {
-                                    x: snippetOrigin.x + 25,
-                                    y: snippetOrigin.y + 25
-                                };
-                            }
-                        }
-
-                        return from(
-                            this.snippetService.copySnippet(response.snippet.id, pasteLocation, processGroupId)
-                        ).pipe(map((response) => FlowActions.pasteSuccess({ response })));
+            switchMap(([request, processGroupId, revision /*, transform*/]) => {
+                const payload: PastePayloadEntity = {
+                    copyResponse: request.copyResponse,
+                    revision
+                };
+                const pasteRequest: PasteRequestContext = {
+                    payload,
+                    processGroupId
+                };
+                return from(this.copyPasteService.paste(pasteRequest)).pipe(
+                    map((response) => {
+                        console.log('pasted!', response);
+                        return FlowActions.pasteSuccess({ response });
                     }),
                     catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
-                )
-            )
+                );
+            })
         )
     );
+
+    // paste$ = createEffect(() =>
+    //     this.actions$.pipe(
+    //         ofType(FlowActions.paste),
+    //         map((action) => action.request),
+    //         concatLatestFrom(() => [
+    //             this.store.select(selectCopiedSnippet).pipe(isDefinedAndNotNull()),
+    //             this.store.select(selectCurrentProcessGroupId),
+    //             this.store.select(selectTransform)
+    //         ]),
+    //         switchMap(([request, copiedSnippet, processGroupId, transform]) =>
+    //             from(this.snippetService.createSnippet(copiedSnippet.snippet)).pipe(
+    //                 switchMap((response) => {
+    //                     let pasteLocation = request.pasteLocation;
+    //                     const snippetOrigin = copiedSnippet.origin;
+    //                     const dimensions = copiedSnippet.dimensions;
+    //
+    //                     if (!pasteLocation) {
+    //                         // if the copied snippet is from a different group or the original items are not in the viewport, center the pasted snippet
+    //                         if (
+    //                             copiedSnippet.snippet.parentGroupId != processGroupId ||
+    //                             !this.canvasView.isBoundingBoxInViewport(dimensions, false)
+    //                         ) {
+    //                             const center = this.canvasView.getCenterForBoundingBox(dimensions);
+    //                             pasteLocation = {
+    //                                 x: center[0] - transform.translate.x / transform.scale,
+    //                                 y: center[1] - transform.translate.y / transform.scale
+    //                             };
+    //                         } else {
+    //                             pasteLocation = {
+    //                                 x: snippetOrigin.x + 25,
+    //                                 y: snippetOrigin.y + 25
+    //                             };
+    //                         }
+    //                     }
+    //
+    //                     return from(
+    //                         this.snippetService.copySnippet(response.snippet.id, pasteLocation, processGroupId)
+    //                     ).pipe(map((response) => FlowActions.pasteSuccess({ response })));
+    //                 }),
+    //                 catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
+    //             )
+    //         )
+    //     )
+    // );
 
     pasteSuccess$ = createEffect(() =>
         this.actions$.pipe(

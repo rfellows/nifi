@@ -49,7 +49,6 @@ import {
     loadProcessorSuccess,
     loadRemoteProcessGroupSuccess,
     navigateWithoutTransform,
-    pasteSuccess,
     pollChangeVersionSuccess,
     pollRevertChangesSuccess,
     requestRefreshRemoteProcessGroup,
@@ -94,6 +93,9 @@ export const initialState: FlowState = {
     id: 'root',
     changeVersionRequest: null,
     flow: {
+        revision: {
+            version: 0
+        },
         permissions: {
             canRead: false,
             canWrite: false
@@ -158,7 +160,7 @@ export const initialState: FlowState = {
         parameterProviderBulletins: [],
         reportingTaskBulletins: []
     },
-    copiedSnippet: null,
+    copiedContent: null,
     dragging: false,
     saving: false,
     versionSaving: false,
@@ -477,51 +479,51 @@ export const flowReducer = createReducer(
             });
         });
     }),
-    on(copySuccess, (state, { copiedSnippet }) => ({
+    on(copySuccess, (state, { response }) => ({
         ...state,
-        copiedSnippet
+        copiedContent: response
     })),
-    on(pasteSuccess, (state, { response }) => {
-        return produce(state, (draftState) => {
-            const labels: any[] | null = getComponentCollection(draftState, ComponentType.Label);
-            if (labels) {
-                labels.push(...response.flow.labels);
-            }
-            const funnels: any[] | null = getComponentCollection(draftState, ComponentType.Funnel);
-            if (funnels) {
-                funnels.push(...response.flow.funnels);
-            }
-            const remoteProcessGroups: any[] | null = getComponentCollection(
-                draftState,
-                ComponentType.RemoteProcessGroup
-            );
-            if (remoteProcessGroups) {
-                remoteProcessGroups.push(...response.flow.remoteProcessGroups);
-            }
-            const inputPorts: any[] | null = getComponentCollection(draftState, ComponentType.InputPort);
-            if (inputPorts) {
-                inputPorts.push(...response.flow.inputPorts);
-            }
-            const outputPorts: any[] | null = getComponentCollection(draftState, ComponentType.OutputPort);
-            if (outputPorts) {
-                outputPorts.push(...response.flow.outputPorts);
-            }
-            const processGroups: any[] | null = getComponentCollection(draftState, ComponentType.ProcessGroup);
-            if (processGroups) {
-                processGroups.push(...response.flow.processGroups);
-            }
-            const processors: any[] | null = getComponentCollection(draftState, ComponentType.Processor);
-            if (processors) {
-                processors.push(...response.flow.processors);
-            }
-            const connections: any[] | null = getComponentCollection(draftState, ComponentType.Connection);
-            if (connections) {
-                connections.push(...response.flow.connections);
-            }
-
-            draftState.copiedSnippet = null;
-        });
-    }),
+    // on(pasteSuccess, (state, { response }) => {
+    //     return produce(state, (draftState) => {
+    //         const labels: any[] | null = getComponentCollection(draftState, ComponentType.Label);
+    //         if (labels) {
+    //             labels.push(...response.flow.labels);
+    //         }
+    //         const funnels: any[] | null = getComponentCollection(draftState, ComponentType.Funnel);
+    //         if (funnels) {
+    //             funnels.push(...response.flow.funnels);
+    //         }
+    //         const remoteProcessGroups: any[] | null = getComponentCollection(
+    //             draftState,
+    //             ComponentType.RemoteProcessGroup
+    //         );
+    //         if (remoteProcessGroups) {
+    //             remoteProcessGroups.push(...response.flow.remoteProcessGroups);
+    //         }
+    //         const inputPorts: any[] | null = getComponentCollection(draftState, ComponentType.InputPort);
+    //         if (inputPorts) {
+    //             inputPorts.push(...response.flow.inputPorts);
+    //         }
+    //         const outputPorts: any[] | null = getComponentCollection(draftState, ComponentType.OutputPort);
+    //         if (outputPorts) {
+    //             outputPorts.push(...response.flow.outputPorts);
+    //         }
+    //         const processGroups: any[] | null = getComponentCollection(draftState, ComponentType.ProcessGroup);
+    //         if (processGroups) {
+    //             processGroups.push(...response.flow.processGroups);
+    //         }
+    //         const processors: any[] | null = getComponentCollection(draftState, ComponentType.Processor);
+    //         if (processors) {
+    //             processors.push(...response.flow.processors);
+    //         }
+    //         const connections: any[] | null = getComponentCollection(draftState, ComponentType.Connection);
+    //         if (connections) {
+    //             connections.push(...response.flow.connections);
+    //         }
+    //
+    //         draftState.copiedSnippet = null;
+    //     });
+    // }),
     on(setDragging, (state, { dragging }) => ({
         ...state,
         dragging

@@ -25,6 +25,7 @@ import {
     editComponent,
     editCurrentProcessGroup,
     loadProcessGroup,
+    paste,
     resetFlowState,
     selectComponents,
     setSkipTransform,
@@ -36,7 +37,7 @@ import { CanvasView } from '../../service/canvas-view.service';
 import { INITIAL_SCALE, INITIAL_TRANSLATE } from '../../state/transform/transform.reducer';
 import { selectTransform } from '../../state/transform/transform.selectors';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { SelectedComponent } from '../../state/flow';
+import { CopyResponseEntity, PasteRequest, SelectedComponent } from '../../state/flow';
 import {
     selectAllowTransition,
     selectBulkSelectedComponentIds,
@@ -629,7 +630,7 @@ export class Canvas implements OnInit, OnDestroy {
         this.canvasView.destroy();
     }
 
-    private processKeyboardEvents(event: KeyboardEvent): boolean {
+    private processKeyboardEvents(event: KeyboardEvent | ClipboardEvent): boolean {
         const source = event.target as any;
         let searchFieldIsEventSource = false;
         if (source) {
@@ -696,17 +697,35 @@ export class Canvas implements OnInit, OnDestroy {
         }
     }
 
-    @HostListener('window:keydown.control.v', ['$event'])
-    handleKeyDownCtrlV(event: KeyboardEvent) {
-        if (this.executeAction('paste', event)) {
-            event.preventDefault();
+    @HostListener('window:paste', ['$event'])
+    handlePasteEvent(event: ClipboardEvent) {
+        if (!this.processKeyboardEvents(event) || !this.canvasUtils.isPastable()) {
+            // don't attempt to paste flow content
+            return;
         }
-    }
 
-    @HostListener('window:keydown.meta.v', ['$event'])
-    handleKeyDownMetaV(event: KeyboardEvent) {
-        if (this.executeAction('paste', event)) {
-            event.preventDefault();
+        const textToPaste = event.clipboardData?.getData('text/plain');
+        if (textToPaste) {
+            try {
+                const copyResponse: CopyResponseEntity = JSON.parse(textToPaste);
+                // make sure at least one of the properties are set
+                if (Object.keys(copyResponse).length > 0) {
+                    if (copyResponse) {
+                        const pasteRequest: PasteRequest = {
+                            copyResponse
+                        };
+                        this.store.dispatch(
+                            paste({
+                                request: pasteRequest
+                            })
+                        );
+                        event.preventDefault();
+                    }
+                }
+            } catch (e) {
+                // attempting to paste something other than CopyResponseEntity, ignore it
+                return;
+            }
         }
     }
 

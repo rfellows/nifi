@@ -456,13 +456,50 @@ export interface MoveComponentsRequest {
 export interface CopyComponentRequest extends SnippetComponentRequest {}
 
 export interface CopyRequest {
-    components: CopyComponentRequest[];
+    copyRequestEntity: CopyResponseEntity;
     origin: Position;
     dimensions: any;
 }
+export interface CopyRequestContext extends CopyRequest {
+    processGroupId: string;
+}
+
+///////////////////////////////////////////////////////////
+export interface CopyRequestEntity {
+    processGroups?: string[];
+    remoteProcessGroups?: string[];
+    processors?: string[];
+    inputPorts?: string[];
+    outputPorts?: string[];
+    connections?: string[];
+    labels?: string[];
+    funnels?: string[];
+}
+export interface CopyResponseEntity {
+    processGroups?: any[];
+    remoteProcessGroups?: any[];
+    processors?: any[];
+    inputPorts?: any[];
+    outputPorts?: any[];
+    connections?: any[];
+    labels?: any[];
+    funnels?: any[];
+}
+export interface PastePayloadEntity {
+    copyResponse: CopyResponseEntity;
+    revision: Revision;
+    disconnectedNodeAcknowledged?: boolean;
+}
+
+export interface PasteRequestContext {
+    processGroupId: string;
+    payload: PastePayloadEntity;
+}
+///////////////////////////////////////////////////////////
 
 export interface PasteRequest {
     pasteLocation?: Position;
+    copyResponse: CopyResponseEntity;
 }
 
 export interface PasteResponse {
@@ -589,6 +626,7 @@ export interface ProcessGroupFlow {
 
 export interface ProcessGroupFlowEntity {
     permissions: Permissions;
+    revision: Revision;
     processGroupFlow: ProcessGroupFlow;
 }
 
@@ -641,7 +679,7 @@ export interface FlowState {
     flowAnalysisOpen: boolean;
     versionSaving: boolean;
     changeVersionRequest: FlowUpdateRequestEntity | null;
-    copiedSnippet: CopiedSnippet | null;
+    copiedContent: CopyResponseEntity | null;
     status: 'pending' | 'loading' | 'success' | 'complete';
 }
 
