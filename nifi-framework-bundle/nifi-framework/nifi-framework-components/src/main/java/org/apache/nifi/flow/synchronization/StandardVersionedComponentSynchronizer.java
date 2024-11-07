@@ -84,6 +84,7 @@ import org.apache.nifi.groups.PropertyDecryptor;
 import org.apache.nifi.groups.RemoteProcessGroup;
 import org.apache.nifi.groups.RemoteProcessGroupPortDescriptor;
 import org.apache.nifi.groups.StandardVersionedFlowStatus;
+import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.migration.ControllerServiceFactory;
 import org.apache.nifi.migration.StandardControllerServiceFactory;
@@ -165,6 +166,82 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
 
     public void setSynchronizationOptions(final FlowSynchronizationOptions syncOptions) {
         this.syncOptions = syncOptions;
+    }
+
+    @Override
+    public void addVersionedComponentsToProcessGroup(final ProcessGroup group, final VersionedComponentAdditions additions, final FlowSynchronizationOptions options) {
+        updatedVersionedComponentIds.clear();
+        createdAndModifiedExtensions.clear();
+        setSynchronizationOptions(options);
+
+        // add any controller services first since they may be referenced by components to follow
+        additions.getControllerServices().forEach(controllerService -> {
+            addControllerService(group, controllerService, options.getComponentIdGenerator(), group);
+        });
+
+        // add any processors
+        additions.getProcessors().forEach(processor -> {
+            try {
+                addProcessor(group, processor, options.getComponentIdGenerator(), group);
+            } catch (final ProcessorInstantiationException pie) {
+                throw new RuntimeException(pie);
+            }
+        });
+
+        // add any input ports
+        additions.getInputPorts().forEach(inputPort -> {
+            final String temporaryName = generateTemporaryPortName(inputPort);
+            addInputPort(group, inputPort, options.getComponentIdGenerator(), temporaryName);
+        });
+
+        // add any output ports
+        additions.getOutputPorts().forEach(outputPort -> {
+            final String temporaryName = generateTemporaryPortName(outputPort);
+            addOutputPort(group, outputPort, options.getComponentIdGenerator(), temporaryName);
+        });
+
+        // add any labels
+        additions.getLabels().forEach(label -> {
+            addLabel(group, label, options.getComponentIdGenerator());
+        });
+
+        // add any funnels
+        additions.getFunnels().forEach(funnel -> {
+            addFunnel(group, funnel, options.getComponentIdGenerator());
+        });
+
+        // add any remote process groups
+        additions.getRemoteProcessGroups().forEach(remoteProcessGroup -> {
+            addRemoteProcessGroup(group, remoteProcessGroup, options.getComponentIdGenerator());
+        });
+
+        // add any process groups
+        additions.getProcessGroups().forEach(processGroup -> {
+            try {
+                addProcessGroup(group, processGroup, options.getComponentIdGenerator(), Collections.emptyMap(), Collections.emptyMap(), group);
+            } catch (final ProcessorInstantiationException pie) {
+                throw new RuntimeException(pie);
+            }
+        });
+
+        // lastly add any connections with all source/destinations already added
+        additions.getConnections().forEach(connection -> {
+            addConnection(group, connection, options.getComponentIdGenerator());
+        });
+
+        for (final CreatedOrModifiedExtension createdOrModifiedExtension : createdAndModifiedExtensions) {
+            final ComponentNode extension = createdOrModifiedExtension.extension();
+            final Map<String, String> originalPropertyValues = createdOrModifiedExtension.propertyValues();
+
+            final ControllerServiceFactory serviceFactory = new StandardControllerServiceFactory(context.getExtensionManager(), context.getFlowManager(),
+                    context.getControllerServiceProvider(), extension);
+
+            if (extension instanceof final ProcessorNode processor) {
+                processor.migrateConfiguration(originalPropertyValues, serviceFactory);
+            } else if (extension instanceof final ControllerServiceNode service) {
+                service.migrateConfiguration(originalPropertyValues, serviceFactory);
+            }
+        }
     }
 
     @Override
@@ -1079,6 +1156,13 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
     }
 
     @Override
+    public void verifyCanAddVersionedComponents(final ProcessGroup group, final VersionedComponentAdditions additions) {
+        verifyCanInstantiateProcessors(group, additions.getProcessors(), additions.getProcessGroups());
+        verifyCanInstantiateControllerServices(group, additions.getControllerServices(), additions.getProcessGroups());
+        verifyCanInstantiateConnections(group, additions.getConnections(), additions.getProcessGroups());
+    }
+
+    @Override
     public void verifyCanSynchronize(final ProcessGroup group, final VersionedProcessGroup flowContents, final boolean verifyConnectionRemoval) {
         // Optionally check that no deleted connections contain data in their queue.
         // Note that this check enforces ancestry among the group components to avoid a scenario where
@@ -1124,13 +1208,19 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             }
         }
 
+        verifyCanInstantiateProcessors(group, flowContents.getProcessors(), flowContents.getProcessGroups());
+        verifyCanInstantiateControllerServices(group, flowContents.getControllerServices(), flowContents.getProcessGroups());
+        verifyCanInstantiateConnections(group, flowContents.getConnections(), flowContents.getProcessGroups());
+    }
+
+    private void verifyCanInstantiateProcessors(final ProcessGroup group, final Set<VersionedProcessor> processors, final Set<VersionedProcessGroup> childGroups) {
         // Ensure that all Processors are instantiable
         final Map<String, VersionedProcessor> proposedProcessors = new HashMap<>();
-        findAllProcessors(flowContents, proposedProcessors);
+        findAllProcessors(processors, childGroups, proposedProcessors);
 
         group.findAllProcessors()
-            .forEach(proc -> proposedProcessors.remove(proc.getVersionedComponentId().orElse(
-                NiFiRegistryFlowMapper.generateVersionedComponentId(proc.getIdentifier()))));
+                .forEach(proc -> proposedProcessors.remove(proc.getVersionedComponentId().orElse(
+                        NiFiRegistryFlowMapper.generateVersionedComponentId(proc.getIdentifier()))));
 
         for (final VersionedProcessor processorToAdd : proposedProcessors.values()) {
             final String processorToAddClass = processorToAdd.getType();
@@ -1145,21 +1235,23 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
                 // Could not resolve the bundle explicitly. Check for possible bundles.
                 final List<org.apache.nifi.bundle.Bundle> possibleBundles = context.getExtensionManager().getBundles(processorToAddClass);
                 final boolean bundleExists = possibleBundles.stream()
-                    .anyMatch(b -> processorToAddCoordinate.equals(b.getBundleDetails().getCoordinate()));
+                        .anyMatch(b -> processorToAddCoordinate.equals(b.getBundleDetails().getCoordinate()));
 
                 if (!bundleExists && possibleBundles.size() != 1) {
                     LOG.warn("Unknown bundle {} for processor type {} - will use Ghosted component instead", processorToAddCoordinate, processorToAddClass);
                 }
             }
         }
+    }
 
+    private void verifyCanInstantiateControllerServices(final ProcessGroup group, final Set<VersionedControllerService> controllerServices, final Set<VersionedProcessGroup> childGroups) {
         // Ensure that all Controller Services are instantiable
         final Map<String, VersionedControllerService> proposedServices = new HashMap<>();
-        findAllControllerServices(flowContents, proposedServices);
+        findAllControllerServices(controllerServices, childGroups, proposedServices);
 
         group.findAllControllerServices()
-            .forEach(service -> proposedServices.remove(service.getVersionedComponentId().orElse(
-                NiFiRegistryFlowMapper.generateVersionedComponentId(service.getIdentifier()))));
+                .forEach(service -> proposedServices.remove(service.getVersionedComponentId().orElse(
+                        NiFiRegistryFlowMapper.generateVersionedComponentId(service.getIdentifier()))));
 
         for (final VersionedControllerService serviceToAdd : proposedServices.values()) {
             final String serviceToAddClass = serviceToAdd.getType();
@@ -1169,24 +1261,26 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             if (resolved == null) {
                 final List<org.apache.nifi.bundle.Bundle> possibleBundles = context.getExtensionManager().getBundles(serviceToAddClass);
                 final boolean bundleExists = possibleBundles.stream()
-                    .anyMatch(b -> serviceToAddCoordinate.equals(b.getBundleDetails().getCoordinate()));
+                        .anyMatch(b -> serviceToAddCoordinate.equals(b.getBundleDetails().getCoordinate()));
 
                 if (!bundleExists && possibleBundles.size() != 1) {
                     LOG.warn("Unknown bundle {} for processor type {} - will use Ghosted component instead", serviceToAddCoordinate, serviceToAddClass);
                 }
             }
         }
+    }
 
+    private void verifyCanInstantiateConnections(final ProcessGroup group, final Set<VersionedConnection> connections, final Set<VersionedProcessGroup> childGroups) {
         // Ensure that all Prioritizers are instantiable and that any load balancing configuration is correct
         // Enforcing ancestry on connection matching here is not important because all we're interested in is locating
         // new prioritizers and load balance strategy types so if a matching connection existed anywhere in the current
         // flow, then its prioritizer and load balance strategy are already validated
         final Map<String, VersionedConnection> proposedConnections = new HashMap<>();
-        findAllConnections(flowContents, proposedConnections);
+        findAllConnections(connections, childGroups, proposedConnections);
 
         group.findAllConnections()
-            .forEach(conn -> proposedConnections.remove(conn.getVersionedComponentId().orElse(
-                NiFiRegistryFlowMapper.generateVersionedComponentId(conn.getIdentifier()))));
+                .forEach(conn -> proposedConnections.remove(conn.getVersionedComponentId().orElse(
+                        NiFiRegistryFlowMapper.generateVersionedComponentId(conn.getIdentifier()))));
 
         for (final VersionedConnection connectionToAdd : proposedConnections.values()) {
             if (connectionToAdd.getPrioritizers() != null) {
@@ -1205,7 +1299,7 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
                     LoadBalanceStrategy.valueOf(loadBalanceStrategyName);
                 } catch (final IllegalArgumentException iae) {
                     throw new IllegalArgumentException("Unable to create Connection with Load Balance Strategy of '" + loadBalanceStrategyName
-                        + "' because this is not a known Load Balance Strategy");
+                            + "' because this is not a known Load Balance Strategy");
                 }
             }
         }
@@ -3725,33 +3819,33 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             NiFiRegistryFlowMapper.generateVersionedComponentId(group.getIdentifier())).equals(groupId);
     }
 
-    private void findAllProcessors(final VersionedProcessGroup group, final Map<String, VersionedProcessor> map) {
-        for (final VersionedProcessor processor : group.getProcessors()) {
+    private void findAllProcessors(final Set<VersionedProcessor> processors, final Set<VersionedProcessGroup> childGroups, final Map<String, VersionedProcessor> map) {
+        for (final VersionedProcessor processor : processors) {
             map.put(processor.getIdentifier(), processor);
         }
 
-        for (final VersionedProcessGroup childGroup : group.getProcessGroups()) {
-            findAllProcessors(childGroup, map);
+        for (final VersionedProcessGroup childGroup : childGroups) {
+            findAllProcessors(childGroup.getProcessors(), childGroup.getProcessGroups(), map);
         }
     }
 
-    private void findAllControllerServices(final VersionedProcessGroup group, final Map<String, VersionedControllerService> map) {
-        for (final VersionedControllerService service : group.getControllerServices()) {
+    private void findAllControllerServices(final Set<VersionedControllerService> controllerServices, final Set<VersionedProcessGroup> childGroups, final Map<String, VersionedControllerService> map) {
+        for (final VersionedControllerService service : controllerServices) {
             map.put(service.getIdentifier(), service);
         }
 
-        for (final VersionedProcessGroup childGroup : group.getProcessGroups()) {
-            findAllControllerServices(childGroup, map);
+        for (final VersionedProcessGroup childGroup : childGroups) {
+            findAllControllerServices(childGroup.getControllerServices(), childGroup.getProcessGroups(), map);
         }
     }
 
-    private void findAllConnections(final VersionedProcessGroup group, final Map<String, VersionedConnection> map) {
-        for (final VersionedConnection connection : group.getConnections()) {
+    private void findAllConnections(final Set<VersionedConnection> connections, final Set<VersionedProcessGroup> childGroups, final Map<String, VersionedConnection> map) {
+        for (final VersionedConnection connection : connections) {
             map.put(connection.getIdentifier(), connection);
         }
 
-        for (final VersionedProcessGroup childGroup : group.getProcessGroups()) {
-            findAllConnections(childGroup, map);
+        for (final VersionedProcessGroup childGroup : childGroups) {
+            findAllConnections(childGroup.getConnections(), childGroup.getProcessGroups(), map);
         }
     }
 

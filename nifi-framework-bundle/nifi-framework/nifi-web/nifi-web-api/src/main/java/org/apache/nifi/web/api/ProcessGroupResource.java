@@ -77,6 +77,7 @@ import org.apache.nifi.flow.ExecutionEngine;
 import org.apache.nifi.flow.VersionedFlowCoordinates;
 import org.apache.nifi.flow.VersionedParameterContext;
 import org.apache.nifi.flow.VersionedProcessGroup;
+import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.parameter.ParameterContext;
 import org.apache.nifi.registry.client.NiFiRegistryException;
 import org.apache.nifi.registry.flow.FlowRegistryBucket;
@@ -2971,9 +2972,19 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                     required = true
             ) final PastePayloadEntity pastePayloadEntity) {
 
-        // verify the process group was specified
+        // verify the payload was specified
         if (pastePayloadEntity == null) {
             throw new IllegalArgumentException("The paste payload must be specified.");
+        }
+
+        // verify the revision is specified
+        if (pastePayloadEntity.getRevision() == null) {
+            throw new IllegalArgumentException("Revision must be specified.");
+        }
+
+        // verify the copy response is specified
+        if (pastePayloadEntity.getCopyResponse() == null) {
+            throw new IllegalArgumentException("The details of the copied components must be specified.");
         }
 
         if (isReplicateRequest()) {
@@ -3015,20 +3026,18 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                     serviceFacade.resolveInheritedControllerServices(flowSnapshotContainer, groupId, NiFiUserUtils.getNiFiUser());
 
                     // get the current flow snapshot for the specific process group and add all the components being pasted
-                    final RegisteredFlowSnapshot currentVersionedFlowSnapshot = serviceFacade.getCurrentFlowSnapshotByGroupId(groupId);
-                    final VersionedProcessGroup currentVersionedProcessGroup = currentVersionedFlowSnapshot.getFlowContents();
-                    currentVersionedProcessGroup.getProcessors().addAll(requestVersionedProcessGroup.getProcessors());
-                    currentVersionedProcessGroup.getInputPorts().addAll(requestVersionedProcessGroup.getInputPorts());
-                    currentVersionedProcessGroup.getOutputPorts().addAll(requestVersionedProcessGroup.getOutputPorts());
-                    currentVersionedProcessGroup.getFunnels().addAll(requestVersionedProcessGroup.getFunnels());
-                    currentVersionedProcessGroup.getLabels().addAll(requestVersionedProcessGroup.getLabels());
-                    currentVersionedProcessGroup.getProcessGroups().addAll(requestVersionedProcessGroup.getProcessGroups());
-                    currentVersionedProcessGroup.getRemoteProcessGroups().addAll(requestVersionedProcessGroup.getRemoteProcessGroups());
-                    currentVersionedProcessGroup.getConnections().addAll(requestVersionedProcessGroup.getConnections());
+                    final VersionedComponentAdditions additions = new VersionedComponentAdditions.Builder()
+                            .setProcessors(requestVersionedProcessGroup.getProcessors())
+                            .setInputPorts(requestVersionedProcessGroup.getInputPorts())
+                            .setOutputPorts(requestVersionedProcessGroup.getOutputPorts())
+                            .setFunnels(requestVersionedProcessGroup.getFunnels())
+                            .setLabels(requestVersionedProcessGroup.getLabels())
+                            .setProcessGroups(requestVersionedProcessGroup.getProcessGroups())
+                            .setRemoteProcessGroups(requestVersionedProcessGroup.getRemoteProcessGroups())
+                            .setConnections(requestVersionedProcessGroup.getConnections())
+                            .build();
 
-                    final ProcessGroupEntity updatedProcessGroupEntity = serviceFacade.updateProcessGroupContents(revision, groupId, null,
-                            currentVersionedFlowSnapshot, getIdGenerationSeed().orElse(null), false, false, false);
-
+                    final ProcessGroupEntity updatedProcessGroupEntity = serviceFacade.addVersionedComponents(revision, groupId, additions, getIdGenerationSeed().orElse(null));
                     populateRemainingProcessGroupEntityContent(updatedProcessGroupEntity);
 
                     return generateOkResponse(updatedProcessGroupEntity).build();

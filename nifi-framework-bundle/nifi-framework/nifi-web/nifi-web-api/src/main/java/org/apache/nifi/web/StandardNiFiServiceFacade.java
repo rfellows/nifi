@@ -134,6 +134,7 @@ import org.apache.nifi.flowanalysis.FlowAnalysisRule;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.groups.ProcessGroupCounts;
 import org.apache.nifi.groups.RemoteProcessGroup;
+import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.history.History;
 import org.apache.nifi.history.HistoryQuery;
 import org.apache.nifi.history.PreviousValue;
@@ -6101,6 +6102,35 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
             .forEach(revisions::add);
 
         return revisions;
+    }
+
+    @Override
+    public ProcessGroupEntity addVersionedComponents(final Revision revision, final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
+        final NiFiUser user = NiFiUserUtils.getNiFiUser();
+
+        final RevisionUpdate<ProcessGroupDTO> snapshot = revisionManager.updateRevision(new StandardRevisionClaim(revision), user, new UpdateRevisionTask<ProcessGroupDTO>() {
+            @Override
+            public RevisionUpdate<ProcessGroupDTO> update() {
+                final ProcessGroup processGroup = processGroupDAO.addVersionedComponents(groupId, additions, componentIdSeed);
+
+                // save
+                controllerFacade.save();
+
+                // gather details for response
+                final ProcessGroupDTO dto = dtoFactory.createProcessGroupDto(processGroup);
+
+                final Revision updatedRevision = revisionManager.getRevision(revision.getComponentId()).incrementRevision(revision.getClientId());
+                final FlowModification lastModification = new FlowModification(updatedRevision, user.getIdentity());
+                return new StandardRevisionUpdate<>(dto, lastModification);
+            }
+        });
+
+        final ProcessGroup processGroupNode = processGroupDAO.getProcessGroup(groupId);
+        final PermissionsDTO permissions = dtoFactory.createPermissionsDto(processGroupNode);
+        final RevisionDTO updatedRevision = dtoFactory.createRevisionDTO(snapshot.getLastModification());
+        final ProcessGroupStatusDTO status = dtoFactory.createConciseProcessGroupStatusDto(controllerFacade.getProcessGroupStatus(processGroupNode.getIdentifier()));
+        final List<BulletinEntity> bulletinEntities = getProcessGroupBulletins(processGroupNode);
+        return entityFactory.createProcessGroupEntity(snapshot.getComponent(), updatedRevision, permissions, status, bulletinEntities);
     }
 
     @Override

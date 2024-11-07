@@ -3805,6 +3805,46 @@ public final class StandardProcessGroup implements ProcessGroup {
     }
 
     @Override
+    public void addVersionedComponents(final VersionedComponentAdditions additions, final String componentIdSeed) {
+        final ComponentIdGenerator idGenerator = (proposedId, instanceId, destinationGroupId) -> generateUuid(proposedId, destinationGroupId, componentIdSeed);
+        final VersionedComponentStateLookup stateLookup = VersionedComponentStateLookup.ENABLED_OR_DISABLED;
+        final ComponentScheduler defaultComponentScheduler = new DefaultComponentScheduler(controllerServiceProvider, stateLookup);
+        final ComponentScheduler retainExistingStateScheduler = new RetainExistingStateComponentScheduler(this, defaultComponentScheduler);
+
+        final FlowSynchronizationOptions synchronizationOptions = new FlowSynchronizationOptions.Builder()
+                .componentIdGenerator(idGenerator)
+                .componentComparisonIdLookup(VersionedComponent::getIdentifier)
+                .componentScheduler(retainExistingStateScheduler)
+                .updateRpgUrls(false)
+                .propertyDecryptor(value -> null)
+                .build();
+
+        final FlowMappingOptions flowMappingOptions = new FlowMappingOptions.Builder()
+                .mapSensitiveConfiguration(false)
+                .mapPropertyDescriptors(true)
+                .stateLookup(stateLookup)
+                .sensitiveValueEncryptor(null)
+                .componentIdLookup(ComponentIdLookup.VERSIONED_OR_GENERATE)
+                .mapInstanceIdentifiers(false)
+                .mapControllerServiceReferencesToVersionedId(true)
+                .mapFlowRegistryClientId(false)
+                .mapAssetReferences(false)
+                .build();
+
+        writeLock.lock();
+        try {
+            final VersionedFlowSynchronizationContext groupSynchronizationContext = createGroupSynchronizationContext(
+                    synchronizationOptions.getComponentIdGenerator(), synchronizationOptions.getComponentScheduler(), flowMappingOptions);
+            final StandardVersionedComponentSynchronizer synchronizer = new StandardVersionedComponentSynchronizer(groupSynchronizationContext);
+
+            synchronizer.verifyCanAddVersionedComponents(this, additions);
+            synchronizer.addVersionedComponentsToProcessGroup(this, additions, synchronizationOptions);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    @Override
     public void updateFlow(final VersionedExternalFlow proposedSnapshot, final String componentIdSeed, final boolean verifyNotDirty, final boolean updateSettings,
                            final boolean updateDescendantVersionedFlows) {
 

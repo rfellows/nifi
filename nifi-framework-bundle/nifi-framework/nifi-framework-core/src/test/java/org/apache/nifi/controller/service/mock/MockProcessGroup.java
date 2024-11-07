@@ -46,6 +46,7 @@ import org.apache.nifi.groups.ProcessGroupCounts;
 import org.apache.nifi.groups.RemoteProcessGroup;
 import org.apache.nifi.groups.StatelessGroupNode;
 import org.apache.nifi.groups.StatelessGroupScheduledState;
+import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.parameter.ParameterContext;
 import org.apache.nifi.parameter.ParameterUpdate;
 import org.apache.nifi.registry.flow.FlowLocation;
@@ -702,6 +703,10 @@ public class MockProcessGroup implements ProcessGroup {
 
     @Override
     public void synchronizeWithFlowRegistry(FlowManager flowRegistry) {
+    }
+
+    @Override
+    public void addVersionedComponents(VersionedComponentAdditions additions, String componentIdSeed) {
     }
 
     @Override

@@ -63,6 +63,7 @@ import org.apache.nifi.groups.FlowFileOutboundPolicy;
 import org.apache.nifi.groups.FlowSynchronizationOptions;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.groups.ScheduledStateChangeListener;
+import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.logging.LogLevel;
 import org.apache.nifi.nar.ExtensionManager;
 import org.apache.nifi.parameter.Parameter;
@@ -388,6 +389,38 @@ public class StandardVersionedComponentSynchronizerTest {
         final Map<String, String> migratedProperties = propertiesCaptor.getValue();
         final String propertyValue = migratedProperties.get(SENSITIVE_PROPERTY_NAME);
         assertEquals(ENCODED_TEXT, propertyValue);
+    }
+
+    @Test
+    public void testAddVersionedComponents() {
+        final VersionedControllerService versionedService = createMinimalVersionedControllerService();
+
+        final Map<String, String> versionedProperties = Collections.singletonMap(SENSITIVE_PROPERTY_NAME, ENCRYPTED_PROPERTY_VALUE);
+        final VersionedProcessor versionedProcessor = createMinimalVersionedProcessor();
+        versionedProcessor.setProperties(versionedProperties);
+
+        final ProcessorNode processorNode = createMockProcessor();
+        when(flowManager.createProcessor(any(), any(), any(), eq(true))).thenReturn(processorNode);
+
+        final VersionedComponentAdditions additions = new VersionedComponentAdditions.Builder()
+                .setProcessors(Set.of(versionedProcessor))
+                .setControllerServices(Set.of(versionedService))
+                .build();
+
+        synchronizer.addVersionedComponentsToProcessGroup(group, additions, synchronizationOptions);
+
+        verify(group).addProcessor(processorNode);
+        verify(processorNode).migrateConfiguration(propertiesCaptor.capture(), any());
+        Map<String, String> migratedProperties = propertiesCaptor.getValue();
+        String propertyValue = migratedProperties.get(SENSITIVE_PROPERTY_NAME);
+        assertEquals(ENCODED_TEXT, propertyValue);
+
+        verify(group).addControllerService(any(ControllerServiceNode.class));
+        verify(controllerServiceNode).setName(eq(versionedService.getName()));
+        verify(controllerServiceNode).migrateConfiguration(propertiesCaptor.capture(), any());
+        migratedProperties = propertiesCaptor.getValue();
+        propertyValue = migratedProperties.get("abc");
+        assertEquals("123", propertyValue);
     }
 
     @Test

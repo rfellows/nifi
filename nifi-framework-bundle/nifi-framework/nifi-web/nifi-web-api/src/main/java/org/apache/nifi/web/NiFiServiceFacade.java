@@ -38,6 +38,7 @@ import org.apache.nifi.flow.VersionedParameterContext;
 import org.apache.nifi.flow.VersionedProcessGroup;
 import org.apache.nifi.flow.VersionedReportingTaskSnapshot;
 import org.apache.nifi.groups.ProcessGroup;
+import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.parameter.ParameterContext;
 import org.apache.nifi.parameter.ParameterGroupConfiguration;
 import org.apache.nifi.registry.flow.FlowLocation;
@@ -1761,6 +1762,17 @@ public interface NiFiServiceFacade {
      * @throws IllegalStateException if the Process Group cannot have its local modifications reverted
      */
     void verifyCanRevertLocalModifications(String groupId, RegisteredFlowSnapshot versionedFlowSnapshot);
+
+    /**
+     * Adds versioned components to the specified Process Group
+     *
+     * @param revision the revision of the Process Group
+     * @param groupId the ID of the Process Group
+     * @param additions the components to add
+     * @param componentIdSeed the seed to use for generating new component ID's
+     * @return the Process Group
+     */
+    ProcessGroupEntity addVersionedComponents(Revision revision, String groupId, VersionedComponentAdditions additions, String componentIdSeed);
 
     /**
      * Updates the Process group with the given ID to match the new snapshot
