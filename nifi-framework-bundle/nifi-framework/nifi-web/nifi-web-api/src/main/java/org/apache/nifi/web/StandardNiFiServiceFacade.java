@@ -4935,8 +4935,9 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         // has a Processor, we don't care about the individual stats of that Processor because the ProcessGroupFlowEntity
         // doesn't include that anyway. So we can avoid including the information in the status that is returned.
         final ProcessGroupStatus groupStatus = controllerFacade.getProcessGroupStatus(groupId, 1);
+        final RevisionDTO revision = dtoFactory.createRevisionDTO(revisionManager.getRevision(processGroup.getIdentifier()));
         final PermissionsDTO permissions = dtoFactory.createPermissionsDto(processGroup);
-        return entityFactory.createProcessGroupFlowEntity(dtoFactory.createProcessGroupFlowDto(processGroup, groupStatus, revisionManager, this::getProcessGroupBulletins, uiOnly), permissions);
+        return entityFactory.createProcessGroupFlowEntity(dtoFactory.createProcessGroupFlowDto(processGroup, groupStatus, revisionManager, this::getProcessGroupBulletins, uiOnly), revision, permissions);
     }
 
     @Override
