@@ -37,7 +37,7 @@ import { CanvasView } from '../../service/canvas-view.service';
 import { INITIAL_SCALE, INITIAL_TRANSLATE } from '../../state/transform/transform.reducer';
 import { selectTransform } from '../../state/transform/transform.selectors';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CopyResponseEntity, PasteRequest, SelectedComponent } from '../../state/flow';
+import { ComponentEntity, CopyResponseEntity, Dimensions, PasteRequest, SelectedComponent } from '../../state/flow';
 import {
     selectAllowTransition,
     selectBulkSelectedComponentIds,
@@ -711,6 +711,7 @@ export class Canvas implements OnInit, OnDestroy {
                 // make sure at least one of the properties are set
                 if (Object.keys(copyResponse).length > 0) {
                     if (copyResponse) {
+                        this.centerCopiedComponentsPosition(copyResponse);
                         const pasteRequest: PasteRequest = {
                             copyResponse
                         };
@@ -740,6 +741,137 @@ export class Canvas implements OnInit, OnDestroy {
     handleKeyDownMetaA(event: KeyboardEvent) {
         if (this.executeAction('selectAll', event)) {
             event.preventDefault();
+        }
+    }
+
+    /**
+     * Use when pasting components to the same process group they were copied from and some
+     * part of those components are still visible on canvas
+     * @param copyResponse
+     * @param offset
+     * @private
+     */
+    private adjustCopiedComponentsPositionByOffset(copyResponse: CopyResponseEntity, offset: number = 25) {
+        Object.values(copyResponse).forEach((values: ComponentEntity[]) => {
+            values.forEach((value) => {
+                const newPos = this.canvasView.getCanvasPosition(value.position);
+                value.position.x = (newPos?.x || value.position.x) + offset;
+                value.position.y = (newPos?.y || value.position.y) + offset;
+            });
+        });
+    }
+
+    /**
+     * Use when it isn't known if the copied content is still visible on the screen (possibly a different pg or browser tab),
+     * or it is known to be off-screen.
+     * @param copyResponse
+     * @private
+     */
+    private centerCopiedComponentsPosition(copyResponse: CopyResponseEntity) {
+        // get center of canvas
+        const canvasBBox = this.canvasView.getCanvasBoundingClientRect();
+        if (canvasBBox) {
+            // Get the normalized center of the canvas to later compare with the center of the items being pasted
+            const canvasCenterNormalized = this.canvasView.getCanvasPosition({
+                x: canvasBBox.width / 2 + canvasBBox.left,
+                y: canvasBBox.height / 2 + canvasBBox.top
+            });
+            if (canvasCenterNormalized) {
+                // get the bounding box of the items being pasted (including the bends of connections)
+                const copiedBBox = this.calculateBoundingBoxForCopiedContent(copyResponse);
+
+                // get it's center
+                const centerOfCopiedContent: Position = {
+                    x: copiedBBox.width / 2 + copiedBBox.x,
+                    y: copiedBBox.height / 2 + copiedBBox.y
+                };
+
+                // find the difference between the centers
+                const centerOffset: Position = {
+                    x: canvasCenterNormalized.x - centerOfCopiedContent.x,
+                    y: canvasCenterNormalized.y - centerOfCopiedContent.y
+                };
+
+                // offset all items (and bends) by the diff of the centers
+                Object.values(copyResponse).forEach((values: any[]) => {
+                    values.forEach((value) => {
+                        if (value.position) {
+                            value.position.x += centerOffset.x;
+                            value.position.y += centerOffset.y;
+                        } else if (value.bends) {
+                            value.bends.forEach((bend: Position) => {
+                                bend.x += centerOffset.x;
+                                bend.y += centerOffset.y;
+                            });
+                        }
+                    });
+                });
+            }
+        }
+    }
+
+    private calculateBoundingBoxForCopiedContent(copyResponse: CopyResponseEntity): any {
+        const bbox = {
+            left: Number.MAX_SAFE_INTEGER,
+            top: Number.MAX_SAFE_INTEGER,
+            right: 0,
+            bottom: 0
+        };
+        Object.values(copyResponse)
+            .flat()
+            .reduce((acc, current) => {
+                const dimensions: Dimensions = this.getComponentWidth(current);
+                if (current.componentType === 'CONNECTION') {
+                    current.bends.forEach((bend: Position) => {
+                        acc.left = Math.min(acc.left, bend.x);
+                        acc.top = Math.min(acc.top, bend.y);
+                        acc.right = Math.max(acc.right, bend.x);
+                        acc.right = Math.max(acc.bottom, bend.y);
+                    });
+                } else {
+                    acc.left = Math.min(acc.left, current.position.x);
+                    acc.top = Math.min(acc.top, current.position.y);
+                    acc.right = Math.max(acc.right, current.position.x + dimensions.width);
+                    acc.bottom = Math.max(acc.bottom, current.position.y + dimensions.height);
+                }
+                return acc;
+            }, bbox);
+
+        return {
+            x: bbox.left,
+            y: bbox.top,
+            width: bbox.right - bbox.left,
+            height: bbox.bottom - bbox.top
+        };
+    }
+
+    private getComponentWidth(component: any): Dimensions {
+        switch (component.componentType) {
+            case 'PROCESSOR':
+                return {
+                    width: 352,
+                    height: 128
+                };
+            case 'PROCESS_GROUP':
+            case 'REMOTE_PROCESS_GROUP':
+                return {
+                    width: 384,
+                    height: 176
+                };
+            case 'INPUT_PORT':
+            case 'OUTPUT_PORT':
+            case 'REMOTE_INPUT_PORT':
+            case 'REMOTE_OUTPUT_PORT':
+                return {
+                    width: 240,
+                    height: 48
+                };
+            case 'FUNNEL':
+                return { height: 48, width: 48 };
+            case 'LABEL':
+                return { height: component.height, width: component.width };
+            default:
+                return { height: 0, width: 0 };
         }
     }
 }

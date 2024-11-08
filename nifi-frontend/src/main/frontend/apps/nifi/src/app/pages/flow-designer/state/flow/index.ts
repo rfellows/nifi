@@ -679,7 +679,6 @@ export interface FlowState {
     flowAnalysisOpen: boolean;
     versionSaving: boolean;
     changeVersionRequest: FlowUpdateRequestEntity | null;
-    copiedContent: CopyResponseEntity | null;
     status: 'pending' | 'loading' | 'success' | 'complete';
 }
 

@@ -191,6 +191,12 @@ export class CanvasActionsService {
                             }
                             copyRequestEntity.labels.push(d.id);
                             break;
+                        case ComponentType.Funnel:
+                            if (!copyRequestEntity.funnels) {
+                                copyRequestEntity.funnels = [];
+                            }
+                            copyRequestEntity.funnels.push(d.id);
+                            break;
                     }
                 });
 

@@ -160,7 +160,6 @@ export const initialState: FlowState = {
         parameterProviderBulletins: [],
         reportingTaskBulletins: []
     },
-    copiedContent: null,
     dragging: false,
     saving: false,
     versionSaving: false,
@@ -479,10 +478,10 @@ export const flowReducer = createReducer(
             });
         });
     }),
-    on(copySuccess, (state, { response }) => ({
-        ...state,
-        copiedContent: response
-    })),
+    // on(copySuccess, (state, { response }) => ({
+    //     ...state,
+    //     copiedContent: response
+    // })),
     // on(pasteSuccess, (state, { response }) => {
     //     return produce(state, (draftState) => {
     //         const labels: any[] | null = getComponentCollection(draftState, ComponentType.Label);

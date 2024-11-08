@@ -160,7 +160,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DocumentVisibility } from '../../../../state/document-visibility';
 import { ErrorContextKey } from '../../../../state/error';
 import { CopyPasteService } from '../../service/copy-paste.service';
-import { selectTransform } from '../transform/transform.selectors';
 
 @Injectable()
 export class FlowEffects {
@@ -2274,10 +2273,9 @@ export class FlowEffects {
             map((action) => action.request),
             concatLatestFrom(() => [
                 this.store.select(selectCurrentProcessGroupId),
-                this.store.select(selectCurrentProcessGroupRevision),
-                this.store.select(selectTransform)
+                this.store.select(selectCurrentProcessGroupRevision)
             ]),
-            switchMap(([request, processGroupId, revision /*, transform*/]) => {
+            switchMap(([request, processGroupId, revision]) => {
                 const payload: PastePayloadEntity = {
                     copyResponse: request.copyResponse,
                     revision

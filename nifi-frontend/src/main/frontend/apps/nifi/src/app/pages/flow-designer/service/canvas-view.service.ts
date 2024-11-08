@@ -177,6 +177,15 @@ export class CanvasView {
         this.canvasInitialized = true;
     }
 
+    public getCanvasBoundingClientRect(): DOMRect | null {
+        const canvasContainer: any = document.getElementById('canvas-container');
+        if (canvasContainer == null) {
+            return null;
+        }
+
+        return canvasContainer.getBoundingClientRect() as DOMRect;
+    }
+
     // filters zoom events as programmatically modifying the translate or scale now triggers the handlers
     private isBirdseyeEvent(): boolean {
         return this.birdseyeTranslateInProgress;
