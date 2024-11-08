@@ -127,6 +127,7 @@ import org.apache.nifi.web.api.entity.NarSummaryEntity;
 import org.apache.nifi.web.api.entity.ParameterContextEntity;
 import org.apache.nifi.web.api.entity.ParameterProviderEntity;
 import org.apache.nifi.web.api.entity.ParameterProviderReferencingComponentsEntity;
+import org.apache.nifi.web.api.entity.PasteResponseEntity;
 import org.apache.nifi.web.api.entity.PortEntity;
 import org.apache.nifi.web.api.entity.PortStatusEntity;
 import org.apache.nifi.web.api.entity.ProcessGroupEntity;
@@ -1770,9 +1771,9 @@ public interface NiFiServiceFacade {
      * @param groupId the ID of the Process Group
      * @param additions the components to add
      * @param componentIdSeed the seed to use for generating new component ID's
-     * @return the Process Group
+     * @return the Paste response entity
      */
-    ProcessGroupEntity addVersionedComponents(Revision revision, String groupId, VersionedComponentAdditions additions, String componentIdSeed);
+    PasteResponseEntity addVersionedComponents(Revision revision, String groupId, VersionedComponentAdditions additions, String componentIdSeed);
 
     /**
      * Updates the Process group with the given ID to match the new snapshot

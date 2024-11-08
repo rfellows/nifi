@@ -31,6 +31,7 @@ import org.apache.nifi.controller.service.ControllerServiceState;
 import org.apache.nifi.flow.ExecutionEngine;
 import org.apache.nifi.flow.VersionedExternalFlow;
 import org.apache.nifi.flow.VersionedProcessGroup;
+import org.apache.nifi.groups.ComponentAdditions;
 import org.apache.nifi.groups.FlowFileConcurrency;
 import org.apache.nifi.groups.FlowFileOutboundPolicy;
 import org.apache.nifi.groups.ProcessGroup;
@@ -512,14 +513,14 @@ public class StandardProcessGroupDAO extends ComponentDAO implements ProcessGrou
     }
 
     @Override
-    public ProcessGroup addVersionedComponents(final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
+    public ComponentAdditions addVersionedComponents(final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
         final ProcessGroup group = locateProcessGroup(flowController, groupId);
-        group.addVersionedComponents(additions, componentIdSeed);
+        final ComponentAdditions componentAdditions = group.addVersionedComponents(additions, componentIdSeed);
         group.findAllRemoteProcessGroups().forEach(RemoteProcessGroup::initialize);
 
         group.onComponentModified();
 
-        return group;
+        return componentAdditions;
     }
 
     @Override

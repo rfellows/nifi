@@ -111,7 +111,7 @@ import org.apache.nifi.web.api.entity.ConnectionsEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceEntity;
 import org.apache.nifi.web.api.entity.CopyRequestEntity;
 import org.apache.nifi.web.api.entity.CopyResponseEntity;
-import org.apache.nifi.web.api.entity.PastePayloadEntity;
+import org.apache.nifi.web.api.entity.PasteRequestEntity;
 import org.apache.nifi.web.api.entity.CopySnippetRequestEntity;
 import org.apache.nifi.web.api.entity.DropRequestEntity;
 import org.apache.nifi.web.api.entity.Entity;
@@ -124,6 +124,7 @@ import org.apache.nifi.web.api.entity.LabelEntity;
 import org.apache.nifi.web.api.entity.LabelsEntity;
 import org.apache.nifi.web.api.entity.OutputPortsEntity;
 import org.apache.nifi.web.api.entity.ParameterContextReferenceEntity;
+import org.apache.nifi.web.api.entity.PasteResponseEntity;
 import org.apache.nifi.web.api.entity.PortEntity;
 import org.apache.nifi.web.api.entity.ProcessGroupEntity;
 import org.apache.nifi.web.api.entity.ProcessGroupImportEntity;
@@ -2939,8 +2940,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
     /**
      * Pastes the specified payload into the given Process Group.
      *
-     * @param pastePayloadEntity A ProcessGroupUploadEntity.
-     * @return A processGroupEntity.
+     * @param pasteRequestEntity A PasteResponseEntity.
+     * @return A pasteResponseEntity.
      */
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
@@ -2948,7 +2949,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
     @Path("{id}/paste")
     @Operation(
             summary = "Pastes into the specified process group",
-            responses = @ApiResponse(content = @Content(schema = @Schema(implementation = ProcessGroupEntity.class))),
+            responses = @ApiResponse(content = @Content(schema = @Schema(implementation = PasteResponseEntity.class))),
             security = {
                     @SecurityRequirement(name = "Write - /process-groups/{uuid}")
             }
@@ -2970,35 +2971,35 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             @Parameter(
                     description = "The request including the components to be pasted into the specified Process Group.",
                     required = true
-            ) final PastePayloadEntity pastePayloadEntity) {
+            ) final PasteRequestEntity pasteRequestEntity) {
 
         // verify the payload was specified
-        if (pastePayloadEntity == null) {
+        if (pasteRequestEntity == null) {
             throw new IllegalArgumentException("The paste payload must be specified.");
         }
 
         // verify the revision is specified
-        if (pastePayloadEntity.getRevision() == null) {
+        if (pasteRequestEntity.getRevision() == null) {
             throw new IllegalArgumentException("Revision must be specified.");
         }
 
         // verify the copy response is specified
-        if (pastePayloadEntity.getCopyResponse() == null) {
+        if (pasteRequestEntity.getCopyResponse() == null) {
             throw new IllegalArgumentException("The details of the copied components must be specified.");
         }
 
         if (isReplicateRequest()) {
-            return replicate(HttpMethod.PUT, pastePayloadEntity);
+            return replicate(HttpMethod.PUT, pasteRequestEntity);
         } else if (isDisconnectedFromCluster()) {
-            verifyDisconnectedNodeModification(pastePayloadEntity.getDisconnectedNodeAcknowledged());
+            verifyDisconnectedNodeModification(pasteRequestEntity.getDisconnectedNodeAcknowledged());
         }
 
-        final VersionedProcessGroup versionedProcessGroup = getVersionedProcessGroup(pastePayloadEntity);
+        final VersionedProcessGroup versionedProcessGroup = getVersionedProcessGroup(pasteRequestEntity);
 
-        final Revision requestRevision = getRevision(pastePayloadEntity.getRevision(), groupId);
+        final Revision requestRevision = getRevision(pasteRequestEntity.getRevision(), groupId);
         return withWriteLock(
                 serviceFacade,
-                pastePayloadEntity,
+                pasteRequestEntity,
                 requestRevision,
                 lookup -> {
                     final Authorizable processGroup = lookup.getProcessGroup(groupId).getAuthorizable();
@@ -3011,8 +3012,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                     });
                 },
                 () -> serviceFacade.verifyComponentTypes(versionedProcessGroup),
-                (revision, requestPastePayloadEntity) -> {
-                    final VersionedProcessGroup requestVersionedProcessGroup = getVersionedProcessGroup(requestPastePayloadEntity);
+                (revision, requestPasteRequestEntity) -> {
+                    final VersionedProcessGroup requestVersionedProcessGroup = getVersionedProcessGroup(requestPasteRequestEntity);
 
                     // resolve Bundle info
                     serviceFacade.discoverCompatibleBundles(requestVersionedProcessGroup);
@@ -3037,17 +3038,16 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                             .setConnections(requestVersionedProcessGroup.getConnections())
                             .build();
 
-                    final ProcessGroupEntity updatedProcessGroupEntity = serviceFacade.addVersionedComponents(revision, groupId, additions, getIdGenerationSeed().orElse(null));
-                    populateRemainingProcessGroupEntityContent(updatedProcessGroupEntity);
+                    final PasteResponseEntity pasteResponseEntity = serviceFacade.addVersionedComponents(revision, groupId, additions, getIdGenerationSeed().orElse(null));
 
-                    return generateOkResponse(updatedProcessGroupEntity).build();
+                    return generateOkResponse(pasteResponseEntity).build();
                 }
         );
     }
 
     @NotNull
-    private static VersionedProcessGroup getVersionedProcessGroup(PastePayloadEntity pastePayloadEntity) {
-        final CopyResponseEntity copyResponse = pastePayloadEntity.getCopyResponse();
+    private static VersionedProcessGroup getVersionedProcessGroup(PasteRequestEntity pasteRequestEntity) {
+        final CopyResponseEntity copyResponse = pasteRequestEntity.getCopyResponse();
         final VersionedProcessGroup versionedProcessGroup = new VersionedProcessGroup();
         versionedProcessGroup.setProcessors(new HashSet<>(copyResponse.getProcessors()));
         versionedProcessGroup.setInputPorts(new HashSet<>(copyResponse.getInputPorts()));

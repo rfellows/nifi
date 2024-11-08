@@ -35,6 +35,7 @@ import org.apache.nifi.controller.service.ControllerServiceNode;
 import org.apache.nifi.flow.ExecutionEngine;
 import org.apache.nifi.flow.VersionedExternalFlow;
 import org.apache.nifi.groups.BatchCounts;
+import org.apache.nifi.groups.ComponentAdditions;
 import org.apache.nifi.groups.DataValve;
 import org.apache.nifi.groups.FlowFileConcurrency;
 import org.apache.nifi.groups.FlowFileGate;
@@ -706,7 +707,8 @@ public class MockProcessGroup implements ProcessGroup {
     }
 
     @Override
-    public void addVersionedComponents(VersionedComponentAdditions additions, String componentIdSeed) {
+    public ComponentAdditions addVersionedComponents(VersionedComponentAdditions additions, String componentIdSeed) {
+        return new ComponentAdditions.Builder().build();
     }
 
     @Override

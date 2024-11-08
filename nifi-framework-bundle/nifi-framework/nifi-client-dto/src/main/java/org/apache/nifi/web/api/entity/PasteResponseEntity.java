@@ -19,29 +19,29 @@ package org.apache.nifi.web.api.entity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.xml.bind.annotation.XmlType;
 import org.apache.nifi.web.api.dto.RevisionDTO;
+import org.apache.nifi.web.api.dto.flow.FlowDTO;
 
 /**
  * A response to copy a portion of the flow.
  */
-@XmlType(name = "pastePayloadEntity")
-public class PastePayloadEntity extends Entity {
+@XmlType(name = "pasteResponseEntity")
+public class PasteResponseEntity extends Entity {
 
-    private CopyResponseEntity copyResponse;
+    private FlowDTO flow;
 
     private RevisionDTO revision;
-    private Boolean disconnectedNodeAcknowledged;
 
     /**
-     * @return the response from copying
+     * @return flow containing the components that were created as part of this paste action
      */
-    @Schema(description = "The response from copying."
+    @Schema(description = "Flow containing the components that were created as part of this paste action."
     )
-    public CopyResponseEntity getCopyResponse() {
-        return copyResponse;
+    public FlowDTO getFlow() {
+        return flow;
     }
 
-    public void setCopyResponse(CopyResponseEntity copyResponse) {
-        this.copyResponse = copyResponse;
+    public void setFlow(FlowDTO flow) {
+        this.flow = flow;
     }
 
     /**
@@ -55,16 +55,5 @@ public class PastePayloadEntity extends Entity {
 
     public void setRevision(RevisionDTO revision) {
         this.revision = revision;
-    }
-
-    /**
-     * @return Acknowledges if a node is disconnected from a cluster
-     */
-    public Boolean getDisconnectedNodeAcknowledged() {
-        return disconnectedNodeAcknowledged;
-    }
-
-    public void setDisconnectedNodeAcknowledged(Boolean disconnectedNodeAcknowledged) {
-        this.disconnectedNodeAcknowledged = disconnectedNodeAcknowledged;
     }
 }

@@ -131,6 +131,7 @@ import org.apache.nifi.flow.VersionedPropertyDescriptor;
 import org.apache.nifi.flow.VersionedReportingTask;
 import org.apache.nifi.flow.VersionedReportingTaskSnapshot;
 import org.apache.nifi.flowanalysis.FlowAnalysisRule;
+import org.apache.nifi.groups.ComponentAdditions;
 import org.apache.nifi.groups.ProcessGroup;
 import org.apache.nifi.groups.ProcessGroupCounts;
 import org.apache.nifi.groups.RemoteProcessGroup;
@@ -344,6 +345,7 @@ import org.apache.nifi.web.api.entity.ParameterEntity;
 import org.apache.nifi.web.api.entity.ParameterProviderEntity;
 import org.apache.nifi.web.api.entity.ParameterProviderReferencingComponentEntity;
 import org.apache.nifi.web.api.entity.ParameterProviderReferencingComponentsEntity;
+import org.apache.nifi.web.api.entity.PasteResponseEntity;
 import org.apache.nifi.web.api.entity.PortEntity;
 import org.apache.nifi.web.api.entity.PortStatusEntity;
 import org.apache.nifi.web.api.entity.ProcessGroupEntity;
@@ -2902,40 +2904,6 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     private FlowDTO postProcessNewFlowSnippet(final String groupId, final FlowSnippetDTO snippet) {
         // validate the new snippet
         validateSnippetContents(snippet);
-
-        // identify all components added
-        final Set<String> identifiers = new HashSet<>();
-        snippet.getProcessors().stream()
-                .map(proc -> proc.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getConnections().stream()
-                .map(conn -> conn.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getInputPorts().stream()
-                .map(port -> port.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getOutputPorts().stream()
-                .map(port -> port.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getProcessGroups().stream()
-                .map(group -> group.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getRemoteProcessGroups().stream()
-                .map(remoteGroup -> remoteGroup.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getRemoteProcessGroups().stream()
-                .filter(remoteGroup -> remoteGroup.getContents() != null && remoteGroup.getContents().getInputPorts() != null)
-                .flatMap(remoteGroup -> remoteGroup.getContents().getInputPorts().stream())
-                .map(remoteInputPort -> remoteInputPort.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getRemoteProcessGroups().stream()
-                .filter(remoteGroup -> remoteGroup.getContents() != null && remoteGroup.getContents().getOutputPorts() != null)
-                .flatMap(remoteGroup -> remoteGroup.getContents().getOutputPorts().stream())
-                .map(remoteOutputPort -> remoteOutputPort.getId())
-                .forEach(id -> identifiers.add(id));
-        snippet.getLabels().stream()
-                .map(label -> label.getId())
-                .forEach(id -> identifiers.add(id));
 
         final ProcessGroup group = processGroupDAO.getProcessGroup(groupId);
         final ProcessGroupStatus groupStatus = controllerFacade.getProcessGroupStatus(groupId);
@@ -6105,32 +6073,67 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     }
 
     @Override
-    public ProcessGroupEntity addVersionedComponents(final Revision revision, final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
+    public PasteResponseEntity addVersionedComponents(final Revision revision, final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
         final NiFiUser user = NiFiUserUtils.getNiFiUser();
 
-        final RevisionUpdate<ProcessGroupDTO> snapshot = revisionManager.updateRevision(new StandardRevisionClaim(revision), user, new UpdateRevisionTask<ProcessGroupDTO>() {
-            @Override
-            public RevisionUpdate<ProcessGroupDTO> update() {
-                final ProcessGroup processGroup = processGroupDAO.addVersionedComponents(groupId, additions, componentIdSeed);
+        final RevisionUpdate<FlowSnippetDTO> snapshot = revisionManager.updateRevision(new StandardRevisionClaim(revision), user, () -> {
+            final ComponentAdditions componentAdditions = processGroupDAO.addVersionedComponents(groupId, additions, componentIdSeed);
 
-                // save
-                controllerFacade.save();
+            // save
+            controllerFacade.save();
 
-                // gather details for response
-                final ProcessGroupDTO dto = dtoFactory.createProcessGroupDto(processGroup);
+            // gather details for response
+            final FlowSnippetDTO flowSnippetDTO = new FlowSnippetDTO();
 
-                final Revision updatedRevision = revisionManager.getRevision(revision.getComponentId()).incrementRevision(revision.getClientId());
-                final FlowModification lastModification = new FlowModification(updatedRevision, user.getIdentity());
-                return new StandardRevisionUpdate<>(dto, lastModification);
-            }
+            final Set<ControllerServiceDTO> services = new HashSet<>();
+            componentAdditions.getControllerServices().forEach(service -> services.add(dtoFactory.createControllerServiceDto(service)));
+            flowSnippetDTO.setControllerServices(services);
+
+            final Set<ProcessorDTO> processors = new HashSet<>();
+            componentAdditions.getProcessors().forEach(processor -> processors.add(dtoFactory.createProcessorDto(processor)));
+            flowSnippetDTO.setProcessors(processors);
+
+            final Set<PortDTO> inputPorts = new HashSet<>();
+            componentAdditions.getInputPorts().forEach(inputPort -> inputPorts.add(dtoFactory.createPortDto(inputPort)));
+            flowSnippetDTO.setInputPorts(inputPorts);
+
+            final Set<PortDTO> outputPorts = new HashSet<>();
+            componentAdditions.getOutputPorts().forEach(outputPort -> outputPorts.add(dtoFactory.createPortDto(outputPort)));
+            flowSnippetDTO.setOutputPorts(outputPorts);
+
+            final Set<FunnelDTO> funnels = new HashSet<>();
+            componentAdditions.getFunnels().forEach(funnel -> funnels.add(dtoFactory.createFunnelDto(funnel)));
+            flowSnippetDTO.setFunnels(funnels);
+
+            final Set<LabelDTO> labels = new HashSet<>();
+            componentAdditions.getLabels().forEach(label -> labels.add(dtoFactory.createLabelDto(label)));
+            flowSnippetDTO.setLabels(labels);
+
+            final Set<RemoteProcessGroupDTO> remoteProcessGroups = new HashSet<>();
+            componentAdditions.getRemoteProcessGroups().forEach(remoteGroup -> remoteProcessGroups.add(dtoFactory.createRemoteProcessGroupDto(remoteGroup)));
+            flowSnippetDTO.setRemoteProcessGroups(remoteProcessGroups);
+
+            final Set<ProcessGroupDTO> processGroups = new HashSet<>();
+            componentAdditions.getProcessGroups().forEach(group -> processGroups.add(dtoFactory.createProcessGroupDto(group)));
+            flowSnippetDTO.setProcessGroups(processGroups);
+
+            final Set<ConnectionDTO> connections = new HashSet<>();
+            componentAdditions.getConnections().forEach(connection -> connections.add(dtoFactory.createConnectionDto(connection)));
+            flowSnippetDTO.setConnections(connections);
+
+            final Revision updatedRevision = revisionManager.getRevision(revision.getComponentId()).incrementRevision(revision.getClientId());
+            final FlowModification lastModification = new FlowModification(updatedRevision, user.getIdentity());
+            return new StandardRevisionUpdate<>(flowSnippetDTO, lastModification);
         });
 
-        final ProcessGroup processGroupNode = processGroupDAO.getProcessGroup(groupId);
-        final PermissionsDTO permissions = dtoFactory.createPermissionsDto(processGroupNode);
+        // post process new flow snippet
+        final FlowDTO flowDto = postProcessNewFlowSnippet(groupId, snapshot.getComponent());
         final RevisionDTO updatedRevision = dtoFactory.createRevisionDTO(snapshot.getLastModification());
-        final ProcessGroupStatusDTO status = dtoFactory.createConciseProcessGroupStatusDto(controllerFacade.getProcessGroupStatus(processGroupNode.getIdentifier()));
-        final List<BulletinEntity> bulletinEntities = getProcessGroupBulletins(processGroupNode);
-        return entityFactory.createProcessGroupEntity(snapshot.getComponent(), updatedRevision, permissions, status, bulletinEntities);
+
+        final PasteResponseEntity pasteEntity = new PasteResponseEntity();
+        pasteEntity.setFlow(flowDto);
+        pasteEntity.setRevision(updatedRevision);
+        return pasteEntity;
     }
 
     @Override

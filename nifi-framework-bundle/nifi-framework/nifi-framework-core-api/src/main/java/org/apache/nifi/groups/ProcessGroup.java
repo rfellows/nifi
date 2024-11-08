@@ -913,8 +913,9 @@ public interface ProcessGroup extends ComponentAuthorizable, Positionable, Versi
      *
      * @param additions the components to add
      * @param componentIdSeed a seed value to use when generating ID's for new components
+     * @return the component additions
      */
-    void addVersionedComponents(VersionedComponentAdditions additions, String componentIdSeed);
+    ComponentAdditions addVersionedComponents(VersionedComponentAdditions additions, String componentIdSeed);
 
     /**
      * Updates the Process Group to match the proposed flow

@@ -74,6 +74,7 @@ import org.apache.nifi.flow.VersionedRemoteGroupPort;
 import org.apache.nifi.flow.VersionedRemoteProcessGroup;
 import org.apache.nifi.flow.VersionedReportingTask;
 import org.apache.nifi.flowfile.FlowFilePrioritizer;
+import org.apache.nifi.groups.ComponentAdditions;
 import org.apache.nifi.groups.ComponentIdGenerator;
 import org.apache.nifi.groups.FlowFileConcurrency;
 import org.apache.nifi.groups.FlowFileOutboundPolicy;
@@ -169,20 +170,37 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
     }
 
     @Override
-    public void addVersionedComponentsToProcessGroup(final ProcessGroup group, final VersionedComponentAdditions additions, final FlowSynchronizationOptions options) {
+    public ComponentAdditions addVersionedComponentsToProcessGroup(final ProcessGroup group, final VersionedComponentAdditions additions, final FlowSynchronizationOptions options) {
         updatedVersionedComponentIds.clear();
         createdAndModifiedExtensions.clear();
         setSynchronizationOptions(options);
 
+        final ComponentAdditions.Builder additionsBuilder = new ComponentAdditions.Builder();
+
         // add any controller services first since they may be referenced by components to follow
+        final Map<VersionedControllerService, ControllerServiceNode> instanceMapping = new HashMap<>();
         additions.getControllerServices().forEach(controllerService -> {
-            addControllerService(group, controllerService, options.getComponentIdGenerator(), group);
+            final ControllerServiceNode newService = addControllerService(group, controllerService, options.getComponentIdGenerator(), group);
+            instanceMapping.put(controllerService, newService);
+            additionsBuilder.addControllerService(newService);
+        });
+
+        // TODO - loop through each ControllerServiceNode and update
+        additions.getControllerServices().forEach(controllerService -> {
+            final ControllerServiceNode newService = instanceMapping.get(controllerService);
+            if (newService != null) {
+                updateControllerService(newService, controllerService, group);
+            }
         });
 
         // add any processors
         additions.getProcessors().forEach(processor -> {
             try {
-                addProcessor(group, processor, options.getComponentIdGenerator(), group);
+                final String proposedId = processor.getIdentifier();
+                final ProcessorNode newProcessor = addProcessor(group, processor, options.getComponentIdGenerator(), group);
+                final String id = newProcessor.getIdentifier();
+
+                additionsBuilder.addProcessor(newProcessor);
             } catch (final ProcessorInstantiationException pie) {
                 throw new RuntimeException(pie);
             }
@@ -191,34 +209,34 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
         // add any input ports
         additions.getInputPorts().forEach(inputPort -> {
             final String temporaryName = generateTemporaryPortName(inputPort);
-            addInputPort(group, inputPort, options.getComponentIdGenerator(), temporaryName);
+            additionsBuilder.addInputPort(addInputPort(group, inputPort, options.getComponentIdGenerator(), temporaryName));
         });
 
         // add any output ports
         additions.getOutputPorts().forEach(outputPort -> {
             final String temporaryName = generateTemporaryPortName(outputPort);
-            addOutputPort(group, outputPort, options.getComponentIdGenerator(), temporaryName);
+            additionsBuilder.addOutputPort(addOutputPort(group, outputPort, options.getComponentIdGenerator(), temporaryName));
         });
 
         // add any labels
         additions.getLabels().forEach(label -> {
-            addLabel(group, label, options.getComponentIdGenerator());
+            additionsBuilder.addLabel(addLabel(group, label, options.getComponentIdGenerator()));
         });
 
         // add any funnels
         additions.getFunnels().forEach(funnel -> {
-            addFunnel(group, funnel, options.getComponentIdGenerator());
+            additionsBuilder.addFunnel(addFunnel(group, funnel, options.getComponentIdGenerator()));
         });
 
         // add any remote process groups
         additions.getRemoteProcessGroups().forEach(remoteProcessGroup -> {
-            addRemoteProcessGroup(group, remoteProcessGroup, options.getComponentIdGenerator());
+            additionsBuilder.addRemoteProcessGroup(addRemoteProcessGroup(group, remoteProcessGroup, options.getComponentIdGenerator()));
         });
 
         // add any process groups
         additions.getProcessGroups().forEach(processGroup -> {
             try {
-                addProcessGroup(group, processGroup, options.getComponentIdGenerator(), Collections.emptyMap(), Collections.emptyMap(), group);
+                additionsBuilder.addProcessGroup(addProcessGroup(group, processGroup, options.getComponentIdGenerator(), Collections.emptyMap(), Collections.emptyMap(), group));
             } catch (final ProcessorInstantiationException pie) {
                 throw new RuntimeException(pie);
             }
@@ -226,7 +244,9 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
 
         // lastly add any connections with all source/destinations already added
         additions.getConnections().forEach(connection -> {
-            addConnection(group, connection, options.getComponentIdGenerator());
+            // TODO - Before adding Connection update the source/destination to the actual components that were just created
+
+            additionsBuilder.addConnection(addConnection(group, connection, options.getComponentIdGenerator()));
         });
 
         for (final CreatedOrModifiedExtension createdOrModifiedExtension : createdAndModifiedExtensions) {
@@ -242,6 +262,8 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
                 service.migrateConfiguration(originalPropertyValues, serviceFactory);
             }
         }
+
+        return additionsBuilder.build();
     }
 
     @Override
