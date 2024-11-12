@@ -20,7 +20,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import {
-    ComponentEntity,
     CopyRequestContext,
     CopyResponseEntity,
     Dimensions,
@@ -81,13 +80,23 @@ export class CopyPasteService {
             copyResponse: this.cloneCopyResponseEntity(copyResponse)
         };
 
-        Object.values(paste.copyResponse).forEach((values: ComponentEntity[]) => {
-            values.forEach((value) => {
-                const newPos = this.canvasView.getCanvasPosition(value.position);
-                value.position.x = (newPos?.x || value.position.x) + offset * (pasteIncrement + 1);
-                value.position.y = (newPos?.y || value.position.y) + offset * (pasteIncrement + 1);
+        Object.values(paste.copyResponse)
+            .filter((values) => !!values)
+            .forEach((values: any[]) => {
+                values.forEach((value) => {
+                    if (value.position) {
+                        const newPos = this.canvasView.getCanvasPosition(value.position);
+                        value.position.x = (newPos?.x || value.position.x) + offset * (pasteIncrement + 1);
+                        value.position.y = (newPos?.y || value.position.y) + offset * (pasteIncrement + 1);
+                    } else if (value.bends) {
+                        value.bends.forEach((bend: Position) => {
+                            const newPos = this.canvasView.getCanvasPosition(bend);
+                            bend.x = (newPos?.x || bend.x) + offset * (pasteIncrement + 1);
+                            bend.y = (newPos?.y || bend.y) + offset * (pasteIncrement + 1);
+                        });
+                    }
+                });
             });
-        });
 
         return paste;
     }
@@ -128,19 +137,21 @@ export class CopyPasteService {
                 };
 
                 // offset all items (and bends) by the diff of the centers
-                Object.values(paste.copyResponse).forEach((componentArray: any[]) => {
-                    componentArray.forEach((component) => {
-                        if (component.position) {
-                            component.position.x += centerOffset.x;
-                            component.position.y += centerOffset.y;
-                        } else if (component.bends) {
-                            component.bends.forEach((bend: Position) => {
-                                bend.x += centerOffset.x;
-                                bend.y += centerOffset.y;
-                            });
-                        }
+                Object.values(paste.copyResponse)
+                    .filter((values) => !!values)
+                    .forEach((componentArray: any[]) => {
+                        componentArray.forEach((component) => {
+                            if (component.position) {
+                                component.position.x += centerOffset.x;
+                                component.position.y += centerOffset.y;
+                            } else if (component.bends) {
+                                component.bends.forEach((bend: Position) => {
+                                    bend.x += centerOffset.x;
+                                    bend.y += centerOffset.y;
+                                });
+                            }
+                        });
                     });
-                });
 
                 // set the new bounding box on the request with a scale that would fit the contents
                 paste.bbox = {
@@ -164,29 +175,37 @@ export class CopyPasteService {
 
     private cloneCopyResponseEntity(copyResponse: CopyResponseEntity): CopyResponseEntity {
         const arrayOrUndefined = (arr: any[] | undefined) => {
-            if (arr && Array.isArray(arr)) {
-                arr = arr.map((component: any) => {
-                    if (component.position) {
+            if (arr && Array.isArray(arr) && arr.length > 0) {
+                if (arr[0].position) {
+                    return arr.map((component: any) => {
+                        if (component.position) {
+                            return {
+                                ...component,
+                                position: {
+                                    ...component.position
+                                }
+                            };
+                        }
+                    });
+                } else {
+                    // this is an array of connections, handle them differently to account for bends
+                    return arr.map((connection: any) => {
+                        if (connection.bends && connection.bends.length > 0) {
+                            const clonedBends = connection.bends.map((bend: Position) => {
+                                return {
+                                    ...bend
+                                };
+                            });
+                            return {
+                                ...connection,
+                                bends: clonedBends
+                            };
+                        }
                         return {
-                            ...component,
-                            position: {
-                                ...component.position
-                            }
+                            ...connection
                         };
-                    } else if (component.bends) {
-                        return {
-                            ...component,
-                            bends: [
-                                component.bends.map((bend: Position) => {
-                                    return {
-                                        ...bend
-                                    };
-                                })
-                            ]
-                        };
-                    }
-                });
-                return arr;
+                    });
+                }
             }
             return undefined;
         };
@@ -211,6 +230,7 @@ export class CopyPasteService {
         };
         Object.values(copyResponse)
             .flat()
+            .filter((value: any) => !!value)
             .reduce((acc, current) => {
                 const dimensions: Dimensions = this.getComponentWidth(current);
                 if (current.componentType === 'CONNECTION') {
@@ -238,6 +258,9 @@ export class CopyPasteService {
     }
 
     private getComponentWidth(component: any): Dimensions {
+        if (!component) {
+            return { height: 0, width: 0 };
+        }
         switch (component.componentType) {
             case 'PROCESSOR':
                 return {
