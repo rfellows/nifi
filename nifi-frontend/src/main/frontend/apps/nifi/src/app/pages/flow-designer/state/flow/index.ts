@@ -453,18 +453,14 @@ export interface MoveComponentsRequest {
     groupId: string;
 }
 
-export interface CopyComponentRequest extends SnippetComponentRequest {}
-
+///////////////////////////////////////////////////////////
 export interface CopyRequest {
     copyRequestEntity: CopyResponseEntity;
-    origin: Position;
-    dimensions: any;
 }
 export interface CopyRequestContext extends CopyRequest {
     processGroupId: string;
 }
 
-///////////////////////////////////////////////////////////
 export interface CopyRequestEntity {
     processGroups?: string[];
     remoteProcessGroups?: string[];
@@ -485,26 +481,28 @@ export interface CopyResponseEntity {
     labels?: any[];
     funnels?: any[];
 }
-export interface PastePayloadEntity {
+export interface PasteRequest {
+    copyResponse: CopyResponseEntity;
+    fitToScreen?: boolean;
+    bbox?: any;
+}
+export interface PasteRequestEntity {
     copyResponse: CopyResponseEntity;
     revision: Revision;
     disconnectedNodeAcknowledged?: boolean;
 }
-
 export interface PasteRequestContext {
     processGroupId: string;
-    payload: PastePayloadEntity;
+    pasteRequest: PasteRequestEntity;
+}
+export interface PasteResponseEntity {
+    flow: Flow;
+    revision: Revision;
+}
+export interface PasteResponseContext extends PasteResponseEntity {
+    pasteRequest: PasteRequest;
 }
 ///////////////////////////////////////////////////////////
-
-export interface PasteRequest {
-    pasteLocation?: Position;
-    copyResponse: CopyResponseEntity;
-}
-
-export interface PasteResponse {
-    flow: Flow;
-}
 
 export interface DeleteComponentRequest {
     id: string;

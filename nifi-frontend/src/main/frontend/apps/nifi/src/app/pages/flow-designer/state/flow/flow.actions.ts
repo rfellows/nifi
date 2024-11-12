@@ -77,8 +77,7 @@ import {
     OpenGroupComponentsDialogRequest,
     OpenLocalChangesDialogRequest,
     OpenSaveVersionDialogRequest,
-    PasteRequest,
-    PasteResponse,
+    PasteResponseContext,
     RefreshRemoteProcessGroupRequest,
     ReplayLastProvenanceEventRequest,
     RpgManageRemotePortsRequest,
@@ -504,9 +503,9 @@ export const copy = createAction(`${CANVAS_PREFIX} Copy`, props<{ request: CopyR
 
 export const copySuccess = createAction(`${CANVAS_PREFIX} Copy Success`, props<{ response: CopyResponseEntity }>());
 
-export const paste = createAction(`${CANVAS_PREFIX} Paste`, props<{ request: PasteRequest }>());
+export const paste = createAction(`${CANVAS_PREFIX} Paste`, props<{ request: CopyResponseEntity }>());
 
-export const pasteSuccess = createAction(`${CANVAS_PREFIX} Paste Success`, props<{ response: PasteResponse }>());
+export const pasteSuccess = createAction(`${CANVAS_PREFIX} Paste Success`, props<{ response: PasteResponseContext }>());
 
 /*
     Delete Component Actions

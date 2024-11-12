@@ -49,8 +49,8 @@ import {
     ImportFromRegistryDialogRequest,
     LoadProcessGroupResponse,
     MoveComponentRequest,
-    PastePayloadEntity,
     PasteRequestContext,
+    PasteRequestEntity,
     SaveVersionDialogRequest,
     SaveVersionRequest,
     SelectedComponent,
@@ -2258,8 +2258,7 @@ export class FlowEffects {
             this.actions$.pipe(
                 ofType(FlowActions.copySuccess),
                 map((action) => action.response),
-                tap((response) => {
-                    console.log('copied!', response);
+                tap(() => {
                     // TODO: toast notification indicating copy was successful???
                     // TODO: may or may not need to store the copy response in the store.
                 })
@@ -2276,69 +2275,30 @@ export class FlowEffects {
                 this.store.select(selectCurrentProcessGroupRevision)
             ]),
             switchMap(([request, processGroupId, revision]) => {
-                const payload: PastePayloadEntity = {
-                    copyResponse: request.copyResponse,
+                // TODO: determine if the paste should be positioned based off of selected items or centered
+                const centeredPasteRequest = this.copyPasteService.toCenteredPasteRequest(request);
+                const payload: PasteRequestEntity = {
+                    copyResponse: centeredPasteRequest.copyResponse,
                     revision
                 };
                 const pasteRequest: PasteRequestContext = {
-                    payload,
+                    pasteRequest: payload,
                     processGroupId
                 };
                 return from(this.copyPasteService.paste(pasteRequest)).pipe(
                     map((response) => {
-                        console.log('pasted!', response);
-                        return FlowActions.pasteSuccess({ response });
+                        return FlowActions.pasteSuccess({
+                            response: {
+                                ...response,
+                                pasteRequest: centeredPasteRequest
+                            }
+                        });
                     }),
                     catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
                 );
             })
         )
     );
-
-    // paste$ = createEffect(() =>
-    //     this.actions$.pipe(
-    //         ofType(FlowActions.paste),
-    //         map((action) => action.request),
-    //         concatLatestFrom(() => [
-    //             this.store.select(selectCopiedSnippet).pipe(isDefinedAndNotNull()),
-    //             this.store.select(selectCurrentProcessGroupId),
-    //             this.store.select(selectTransform)
-    //         ]),
-    //         switchMap(([request, copiedSnippet, processGroupId, transform]) =>
-    //             from(this.snippetService.createSnippet(copiedSnippet.snippet)).pipe(
-    //                 switchMap((response) => {
-    //                     let pasteLocation = request.pasteLocation;
-    //                     const snippetOrigin = copiedSnippet.origin;
-    //                     const dimensions = copiedSnippet.dimensions;
-    //
-    //                     if (!pasteLocation) {
-    //                         // if the copied snippet is from a different group or the original items are not in the viewport, center the pasted snippet
-    //                         if (
-    //                             copiedSnippet.snippet.parentGroupId != processGroupId ||
-    //                             !this.canvasView.isBoundingBoxInViewport(dimensions, false)
-    //                         ) {
-    //                             const center = this.canvasView.getCenterForBoundingBox(dimensions);
-    //                             pasteLocation = {
-    //                                 x: center[0] - transform.translate.x / transform.scale,
-    //                                 y: center[1] - transform.translate.y / transform.scale
-    //                             };
-    //                         } else {
-    //                             pasteLocation = {
-    //                                 x: snippetOrigin.x + 25,
-    //                                 y: snippetOrigin.y + 25
-    //                             };
-    //                         }
-    //                     }
-    //
-    //                     return from(
-    //                         this.snippetService.copySnippet(response.snippet.id, pasteLocation, processGroupId)
-    //                     ).pipe(map((response) => FlowActions.pasteSuccess({ response })));
-    //                 }),
-    //                 catchError((errorResponse: HttpErrorResponse) => of(this.snackBarOrFullScreenError(errorResponse)))
-    //             )
-    //         )
-    //     )
-    // );
 
     pasteSuccess$ = createEffect(() =>
         this.actions$.pipe(
@@ -2414,6 +2374,9 @@ export class FlowEffects {
                     })
                 );
 
+                if (response.pasteRequest.fitToScreen && response.pasteRequest.bbox) {
+                    this.canvasView.centerBoundingBox(response.pasteRequest.bbox);
+                }
                 return of(
                     FlowActions.selectComponents({
                         request: {

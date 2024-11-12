@@ -261,7 +261,7 @@ export class CanvasView {
     }
 
     /**
-     * Determines if a bounding box is fully in the current viewable canvas area.
+     * Determines if a bounding box is in the current viewable canvas area.
      *
      * @param {type} boundingBox       Bounding box to check.
      * @param {boolean} strict         If true, the entire bounding box must be in the viewport.
@@ -269,11 +269,6 @@ export class CanvasView {
      * @returns {boolean}
      */
     public isBoundingBoxInViewport(boundingBox: any, strict: boolean): boolean {
-        const selection: any = this.canvasUtils.getSelection();
-        if (selection.size() !== 1) {
-            return false;
-        }
-
         const canvasContainer: any = document.getElementById('canvas-container');
         if (!canvasContainer) {
             return false;
@@ -506,6 +501,13 @@ export class CanvasView {
         return bbox;
     }
 
+    /**
+     * Translates a position to the space visible on the canvas
+     *
+     * @param position
+     *
+     * @returns {Position | null}
+     */
     public getCanvasPosition(position: Position): Position | null {
         const canvasContainer: any = document.getElementById('canvas-container');
         if (!canvasContainer) {
@@ -537,7 +539,11 @@ export class CanvasView {
         return null;
     }
 
-    private centerBoundingBox(boundingBox: any): void {
+    /**
+     * Centers the canvas to a bounding box. If a scale is provided, it will zoom to that scale.
+     * @param {type} boundingBox
+     */
+    public centerBoundingBox(boundingBox: any): void {
         let scale: number = this.k;
         if (boundingBox.scale != null) {
             scale = boundingBox.scale;

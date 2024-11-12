@@ -138,12 +138,8 @@ export class CanvasActionsService {
                 return this.canvasUtils.isCopyable(selection);
             },
             action: (selection: d3.Selection<any, any, any, any>) => {
-                const origin = this.canvasUtils.getOrigin(selection);
-                const dimensions = this.canvasView.getSelectionBoundingClientRect(selection);
                 const copyRequestEntity: CopyRequestEntity = {};
                 const request: CopyRequest = {
-                    origin,
-                    dimensions,
                     copyRequestEntity
                 };
 
