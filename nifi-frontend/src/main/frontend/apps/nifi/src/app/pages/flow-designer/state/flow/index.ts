@@ -455,7 +455,7 @@ export interface MoveComponentsRequest {
 
 ///////////////////////////////////////////////////////////
 export interface CopyRequest {
-    copyRequestEntity: CopyResponseEntity;
+    copyRequestEntity: CopyRequestEntity;
 }
 export interface CopyRequestContext extends CopyRequest {
     processGroupId: string;
@@ -476,6 +476,7 @@ export interface CopyRequestEntity {
     funnels?: string[];
 }
 export interface CopyResponseEntity {
+    id: string;
     processGroups?: any[];
     remoteProcessGroups?: any[];
     processors?: any[];

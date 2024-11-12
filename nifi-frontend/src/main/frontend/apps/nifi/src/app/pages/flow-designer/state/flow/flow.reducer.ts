@@ -523,14 +523,14 @@ export const flowReducer = createReducer(
             }
             draftState.flow.revision = response.revision;
 
-            // TODO: update the paste count of the copied content if it was pasted
-            // if (
-            //     draftState.copiedContent &&
-            //     draftState.copiedContent.id === response.pasteRequest.copyResponse.id &&
-            //     draftState.copiedContent.processGroupId === draftState.flow.processGroupFlow.id
-            // ) {
-            //     draftState.copiedContent.pasteCount++;
-            // }
+            // update the paste count of the copied content if it was pasted
+            if (
+                draftState.copiedContent &&
+                draftState.copiedContent.copyResponse.id === response.pasteRequest.copyResponse.id &&
+                draftState.copiedContent.processGroupId === draftState.flow.processGroupFlow.id
+            ) {
+                draftState.copiedContent.pasteCount++;
+            }
         });
     }),
     on(setDragging, (state, { dragging }) => ({

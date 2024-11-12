@@ -48,7 +48,7 @@ export class CopyPasteService {
         return this.httpClient.post(
             `${CopyPasteService.API}/process-groups/${copyRequest.processGroupId}/copy`,
             copyRequest.copyRequestEntity
-        );
+        ) as Observable<CopyResponseEntity>;
     }
 
     paste(pasteRequest: PasteRequestContext): Observable<any> {
@@ -81,7 +81,7 @@ export class CopyPasteService {
         };
 
         Object.values(paste.copyResponse)
-            .filter((values) => !!values)
+            .filter((values) => !!values && Array.isArray(values))
             .forEach((values: any[]) => {
                 values.forEach((value) => {
                     if (value.position) {
@@ -97,7 +97,6 @@ export class CopyPasteService {
                     }
                 });
             });
-
         return paste;
     }
 
@@ -138,7 +137,7 @@ export class CopyPasteService {
 
                 // offset all items (and bends) by the diff of the centers
                 Object.values(paste.copyResponse)
-                    .filter((values) => !!values)
+                    .filter((values) => !!values && Array.isArray(values))
                     .forEach((componentArray: any[]) => {
                         componentArray.forEach((component) => {
                             if (component.position) {
@@ -210,6 +209,7 @@ export class CopyPasteService {
             return undefined;
         };
         return {
+            id: copyResponse.id,
             connections: arrayOrUndefined(copyResponse.connections),
             funnels: arrayOrUndefined(copyResponse.funnels),
             inputPorts: arrayOrUndefined(copyResponse.inputPorts),
@@ -230,7 +230,7 @@ export class CopyPasteService {
         };
         Object.values(copyResponse)
             .flat()
-            .filter((value: any) => !!value)
+            .filter((value: any[]) => !!value && Array.isArray(value))
             .reduce((acc, current) => {
                 const dimensions: Dimensions = this.getComponentWidth(current);
                 if (current.componentType === 'CONNECTION') {

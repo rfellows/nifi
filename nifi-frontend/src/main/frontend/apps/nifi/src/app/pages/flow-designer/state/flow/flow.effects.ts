@@ -2287,12 +2287,15 @@ export class FlowEffects {
                 //   * And, the last copied content is the same as the content being pasted
                 //   * And, the original content is still in the canvas view
                 if (copiedContent && processGroupId === copiedContent.processGroupId) {
-                    // TODO: (copiedContent.copyResponse.id === request.id) {
-                    const isInView = this.copyPasteService.isCopiedContentInView(copiedContent.copyResponse);
-                    if (isInView) {
-                        pasteRequest = this.copyPasteService.toOffsetPasteRequest(request, copiedContent.pasteCount);
+                    if (copiedContent.copyResponse.id === request.id) {
+                        const isInView = this.copyPasteService.isCopiedContentInView(copiedContent.copyResponse);
+                        if (isInView) {
+                            pasteRequest = this.copyPasteService.toOffsetPasteRequest(
+                                request,
+                                copiedContent.pasteCount
+                            );
+                        }
                     }
-                    // }
                 }
 
                 // If no paste request was created before, create one that is centered in the current canvas view
