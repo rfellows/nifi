@@ -35,6 +35,8 @@ import java.util.Set;
 @XmlType(name = "copyResponseEntity")
 public class CopyResponseEntity extends Entity {
 
+    private String id;
+
     private Set<VersionedProcessGroup> processGroups = new HashSet<>();
     private Set<VersionedRemoteProcessGroup> remoteProcessGroups = new HashSet<>();
     private Set<VersionedProcessor> processors = new HashSet<>();
@@ -43,6 +45,21 @@ public class CopyResponseEntity extends Entity {
     private Set<VersionedConnection> connections = new HashSet<>();
     private Set<VersionedLabel> labels = new HashSet<>();
     private Set<VersionedFunnel> funnels = new HashSet<>();
+
+    /**
+     * The id for this copy action.
+     *
+     * @return The id
+     */
+    @Schema(description = "The id for this copy action."
+    )
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     /**
      * @return the connections being copied.

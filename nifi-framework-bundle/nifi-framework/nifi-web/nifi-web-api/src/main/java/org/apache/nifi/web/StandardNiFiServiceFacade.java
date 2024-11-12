@@ -5277,6 +5277,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
 
         // build the copy response payload
         final CopyResponseEntity copyResponseEntity = new CopyResponseEntity();
+        copyResponseEntity.setId(UUID.randomUUID().toString());
         copyResponseEntity.setProcessGroups(versionedProcessGroups);
         copyResponseEntity.setRemoteProcessGroups(versionedRemoteProcessGroups);
         copyResponseEntity.setProcessors(versionedProcessors);
@@ -6160,42 +6161,44 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
             controllerFacade.save();
 
             // gather details for response
+            final Set<ControllerServiceDTO> services = componentAdditions.getControllerServices().stream()
+                    .map(s -> dtoFactory.createControllerServiceDto(s))
+                    .collect(Collectors.toSet());
+            final Set<ProcessorDTO> processors = componentAdditions.getProcessors().stream()
+                    .map(p -> dtoFactory.createProcessorDto(p))
+                    .collect(Collectors.toSet());
+            final Set<PortDTO> inputPorts = componentAdditions.getInputPorts().stream()
+                    .map(ip -> dtoFactory.createPortDto(ip))
+                    .collect(Collectors.toSet());
+            final Set<PortDTO> outputPorts = componentAdditions.getOutputPorts().stream()
+                    .map(op -> dtoFactory.createPortDto(op))
+                    .collect(Collectors.toSet());
+            final Set<FunnelDTO> funnels = componentAdditions.getFunnels().stream()
+                    .map(f -> dtoFactory.createFunnelDto(f))
+                    .collect(Collectors.toSet());
+            final Set<LabelDTO> labels = componentAdditions.getLabels().stream()
+                    .map(l -> dtoFactory.createLabelDto(l))
+                    .collect(Collectors.toSet());
+            final Set<RemoteProcessGroupDTO> remoteProcessGroups = componentAdditions.getRemoteProcessGroups().stream()
+                    .map(rpg -> dtoFactory.createRemoteProcessGroupDto(rpg))
+                    .collect(Collectors.toSet());
+            final Set<ProcessGroupDTO> processGroups = componentAdditions.getProcessGroups().stream()
+                    .map(pg -> dtoFactory.createProcessGroupDto(pg))
+                    .collect(Collectors.toSet());
+            final Set<ConnectionDTO> connections = componentAdditions.getConnections().stream()
+                    .map(c -> dtoFactory.createConnectionDto(c))
+                    .collect(Collectors.toSet());
+
+            // return the details using a flow snippet dto
             final FlowSnippetDTO flowSnippetDTO = new FlowSnippetDTO();
-
-            final Set<ControllerServiceDTO> services = new HashSet<>();
-            componentAdditions.getControllerServices().forEach(service -> services.add(dtoFactory.createControllerServiceDto(service)));
             flowSnippetDTO.setControllerServices(services);
-
-            final Set<ProcessorDTO> processors = new HashSet<>();
-            componentAdditions.getProcessors().forEach(processor -> processors.add(dtoFactory.createProcessorDto(processor)));
             flowSnippetDTO.setProcessors(processors);
-
-            final Set<PortDTO> inputPorts = new HashSet<>();
-            componentAdditions.getInputPorts().forEach(inputPort -> inputPorts.add(dtoFactory.createPortDto(inputPort)));
             flowSnippetDTO.setInputPorts(inputPorts);
-
-            final Set<PortDTO> outputPorts = new HashSet<>();
-            componentAdditions.getOutputPorts().forEach(outputPort -> outputPorts.add(dtoFactory.createPortDto(outputPort)));
             flowSnippetDTO.setOutputPorts(outputPorts);
-
-            final Set<FunnelDTO> funnels = new HashSet<>();
-            componentAdditions.getFunnels().forEach(funnel -> funnels.add(dtoFactory.createFunnelDto(funnel)));
             flowSnippetDTO.setFunnels(funnels);
-
-            final Set<LabelDTO> labels = new HashSet<>();
-            componentAdditions.getLabels().forEach(label -> labels.add(dtoFactory.createLabelDto(label)));
             flowSnippetDTO.setLabels(labels);
-
-            final Set<RemoteProcessGroupDTO> remoteProcessGroups = new HashSet<>();
-            componentAdditions.getRemoteProcessGroups().forEach(remoteGroup -> remoteProcessGroups.add(dtoFactory.createRemoteProcessGroupDto(remoteGroup)));
             flowSnippetDTO.setRemoteProcessGroups(remoteProcessGroups);
-
-            final Set<ProcessGroupDTO> processGroups = new HashSet<>();
-            componentAdditions.getProcessGroups().forEach(group -> processGroups.add(dtoFactory.createProcessGroupDto(group)));
             flowSnippetDTO.setProcessGroups(processGroups);
-
-            final Set<ConnectionDTO> connections = new HashSet<>();
-            componentAdditions.getConnections().forEach(connection -> connections.add(dtoFactory.createConnectionDto(connection)));
             flowSnippetDTO.setConnections(connections);
 
             final Revision updatedRevision = revisionManager.getRevision(revision.getComponentId()).incrementRevision(revision.getClientId());
