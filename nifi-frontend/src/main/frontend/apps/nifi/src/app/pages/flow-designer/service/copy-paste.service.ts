@@ -230,21 +230,23 @@ export class CopyPasteService {
         };
         Object.values(copyResponse)
             .flat()
-            .filter((value: any[]) => !!value && Array.isArray(value))
+            .filter((value: any[]) => !!value)
             .reduce((acc, current) => {
-                const dimensions: Dimensions = this.getComponentWidth(current);
-                if (current.componentType === 'CONNECTION') {
-                    current.bends.forEach((bend: Position) => {
-                        acc.left = Math.min(acc.left, bend.x);
-                        acc.top = Math.min(acc.top, bend.y);
-                        acc.right = Math.max(acc.right, bend.x);
-                        acc.right = Math.max(acc.bottom, bend.y);
-                    });
-                } else {
-                    acc.left = Math.min(acc.left, current.position.x);
-                    acc.top = Math.min(acc.top, current.position.y);
-                    acc.right = Math.max(acc.right, current.position.x + dimensions.width);
-                    acc.bottom = Math.max(acc.bottom, current.position.y + dimensions.height);
+                if (current.componentType) {
+                    const dimensions: Dimensions = this.getComponentWidth(current);
+                    if (current.componentType === 'CONNECTION') {
+                        current.bends.forEach((bend: Position) => {
+                            acc.left = Math.min(acc.left, bend.x);
+                            acc.top = Math.min(acc.top, bend.y);
+                            acc.right = Math.max(acc.right, bend.x);
+                            acc.right = Math.max(acc.bottom, bend.y);
+                        });
+                    } else {
+                        acc.left = Math.min(acc.left, current.position.x);
+                        acc.top = Math.min(acc.top, current.position.y);
+                        acc.right = Math.max(acc.right, current.position.x + dimensions.width);
+                        acc.bottom = Math.max(acc.bottom, current.position.y + dimensions.height);
+                    }
                 }
                 return acc;
             }, bbox);
