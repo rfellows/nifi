@@ -109,6 +109,8 @@ import org.apache.nifi.web.api.entity.ControllerBulletinsEntity;
 import org.apache.nifi.web.api.entity.ControllerConfigurationEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceReferencingComponentsEntity;
+import org.apache.nifi.web.api.entity.CopyRequestEntity;
+import org.apache.nifi.web.api.entity.CopyResponseEntity;
 import org.apache.nifi.web.api.entity.CurrentUserEntity;
 import org.apache.nifi.web.api.entity.FlowAnalysisResultEntity;
 import org.apache.nifi.web.api.entity.FlowAnalysisRuleEntity;
@@ -1666,6 +1668,15 @@ public interface NiFiServiceFacade {
     FlowSnapshotContainer getVersionedFlowSnapshotByGroupId(String processGroupId);
 
     /**
+     * Copies the requested components from the specified Process Group.
+     *
+     * @param groupId the group id
+     * @param copyRequest the copy request
+     * @return the copy response
+     */
+    CopyResponseEntity copyComponents(String groupId, CopyRequestEntity copyRequest);
+
+    /**
      * Get the current state of the Process Group with the given ID, converted to a Versioned Flow Snapshot
      *
      * @param processGroupId the ID of the Process Group
@@ -1773,7 +1784,7 @@ public interface NiFiServiceFacade {
      * @param componentIdSeed the seed to use for generating new component ID's
      * @return the Paste response entity
      */
-    PasteResponseEntity addVersionedComponents(Revision revision, String groupId, VersionedComponentAdditions additions, String componentIdSeed);
+    PasteResponseEntity pasteComponents(Revision revision, String groupId, VersionedComponentAdditions additions, String componentIdSeed);
 
     /**
      * Updates the Process group with the given ID to match the new snapshot

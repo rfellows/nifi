@@ -21,7 +21,7 @@ import jakarta.xml.bind.annotation.XmlType;
 import org.apache.nifi.web.api.dto.RevisionDTO;
 
 /**
- * A response to copy a portion of the flow.
+ * A request to paste a portion of the flow.
  */
 @XmlType(name = "pasteRequestEntity")
 public class PasteRequestEntity extends Entity {

@@ -185,7 +185,8 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             additionsBuilder.addControllerService(newService);
         });
 
-        // TODO - loop through each ControllerServiceNode and update
+        // go through the controller services again and update each to update any service references
+        // to their new identifiers
         additions.getControllerServices().forEach(controllerService -> {
             final ControllerServiceNode newService = instanceMapping.get(controllerService);
             if (newService != null) {
@@ -196,10 +197,7 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
         // add any processors
         additions.getProcessors().forEach(processor -> {
             try {
-                final String proposedId = processor.getIdentifier();
                 final ProcessorNode newProcessor = addProcessor(group, processor, options.getComponentIdGenerator(), group);
-                final String id = newProcessor.getIdentifier();
-
                 additionsBuilder.addProcessor(newProcessor);
             } catch (final ProcessorInstantiationException pie) {
                 throw new RuntimeException(pie);
@@ -209,34 +207,40 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
         // add any input ports
         additions.getInputPorts().forEach(inputPort -> {
             final String temporaryName = generateTemporaryPortName(inputPort);
-            additionsBuilder.addInputPort(addInputPort(group, inputPort, options.getComponentIdGenerator(), temporaryName));
+            final Port newInputPort = addInputPort(group, inputPort, options.getComponentIdGenerator(), temporaryName);
+            additionsBuilder.addInputPort(newInputPort);
         });
 
         // add any output ports
         additions.getOutputPorts().forEach(outputPort -> {
             final String temporaryName = generateTemporaryPortName(outputPort);
-            additionsBuilder.addOutputPort(addOutputPort(group, outputPort, options.getComponentIdGenerator(), temporaryName));
+            final Port newOutputPort = addOutputPort(group, outputPort, options.getComponentIdGenerator(), temporaryName);
+            additionsBuilder.addOutputPort(newOutputPort);
         });
 
         // add any labels
         additions.getLabels().forEach(label -> {
-            additionsBuilder.addLabel(addLabel(group, label, options.getComponentIdGenerator()));
+            final Label newLabel = addLabel(group, label, options.getComponentIdGenerator());
+            additionsBuilder.addLabel(newLabel);
         });
 
         // add any funnels
         additions.getFunnels().forEach(funnel -> {
-            additionsBuilder.addFunnel(addFunnel(group, funnel, options.getComponentIdGenerator()));
+            final Funnel newFunnel = addFunnel(group, funnel, options.getComponentIdGenerator());
+            additionsBuilder.addFunnel(newFunnel);
         });
 
         // add any remote process groups
         additions.getRemoteProcessGroups().forEach(remoteProcessGroup -> {
-            additionsBuilder.addRemoteProcessGroup(addRemoteProcessGroup(group, remoteProcessGroup, options.getComponentIdGenerator()));
+            final RemoteProcessGroup newRemoteProcessGroup = addRemoteProcessGroup(group, remoteProcessGroup, options.getComponentIdGenerator());
+            additionsBuilder.addRemoteProcessGroup(newRemoteProcessGroup);
         });
 
         // add any process groups
         additions.getProcessGroups().forEach(processGroup -> {
             try {
-                additionsBuilder.addProcessGroup(addProcessGroup(group, processGroup, options.getComponentIdGenerator(), Collections.emptyMap(), Collections.emptyMap(), group));
+                final ProcessGroup newProcessGroup = addProcessGroup(group, processGroup, options.getComponentIdGenerator(), Collections.emptyMap(), Collections.emptyMap(), group);
+                additionsBuilder.addProcessGroup(newProcessGroup);
             } catch (final ProcessorInstantiationException pie) {
                 throw new RuntimeException(pie);
             }
@@ -244,9 +248,17 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
 
         // lastly add any connections with all source/destinations already added
         additions.getConnections().forEach(connection -> {
-            // TODO - Before adding Connection update the source/destination to the actual components that were just created
+            // null out any instance id's in the connections source/destination since that would be favored
+            // when attaching the connection to the appropriate components
+            if (connection.getSource() != null) {
+                connection.getSource().setInstanceIdentifier(null);
+            }
+            if (connection.getDestination() != null) {
+                connection.getDestination().setInstanceIdentifier(null);
+            }
 
-            additionsBuilder.addConnection(addConnection(group, connection, options.getComponentIdGenerator()));
+            final Connection newConnection = addConnection(group, connection, options.getComponentIdGenerator());
+            additionsBuilder.addConnection(newConnection);
         });
 
         for (final CreatedOrModifiedExtension createdOrModifiedExtension : createdAndModifiedExtensions) {

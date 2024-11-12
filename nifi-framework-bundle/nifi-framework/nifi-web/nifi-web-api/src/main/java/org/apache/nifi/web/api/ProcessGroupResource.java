@@ -32,7 +32,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -386,10 +385,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                 authorizable.authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
             });
             copyRequestEntity.getProcessGroups().forEach(id -> {
-                final Authorizable authorizable = lookup.getProcessGroup(id).getAuthorizable();
-                authorizable.authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
-
-                // TODO - need to authorized all encapsulated components
+                final ProcessGroupAuthorizable processGroupAuthorizable = lookup.getProcessGroup(id);
+                authorizeProcessGroup(processGroupAuthorizable, authorizer, lookup, RequestAction.READ, true, true, false, false);
             });
             copyRequestEntity.getRemoteProcessGroups().forEach(id -> {
                 final Authorizable authorizable = lookup.getRemoteProcessGroup(id);
@@ -409,21 +406,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             });
         });
 
-        // get the versioned flow
-        final RegisteredFlowSnapshot currentVersionedFlowSnapshot = serviceFacade.getCurrentFlowSnapshotByGroupId(groupId);
-        final VersionedProcessGroup flowContents = currentVersionedFlowSnapshot.getFlowContents();
-
-        // build the paste payload
-        final CopyResponseEntity copyResponseEntity = new CopyResponseEntity();
-        copyResponseEntity.setProcessors(flowContents.getProcessors().stream().filter(p -> copyRequestEntity.getProcessors().contains(p.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setInputPorts(flowContents.getInputPorts().stream().filter(ip -> copyRequestEntity.getInputPorts().contains(ip.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setOutputPorts(flowContents.getOutputPorts().stream().filter(op -> copyRequestEntity.getOutputPorts().contains(op.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setProcessGroups(flowContents.getProcessGroups().stream().filter(pg -> copyRequestEntity.getProcessGroups().contains(pg.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setRemoteProcessGroups(flowContents.getRemoteProcessGroups().stream().filter(rpg -> copyRequestEntity.getRemoteProcessGroups().contains(rpg.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setFunnels(flowContents.getFunnels().stream().filter(f -> copyRequestEntity.getFunnels().contains(f.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setLabels(flowContents.getLabels().stream().filter(l -> copyRequestEntity.getLabels().contains(l.getInstanceIdentifier())).collect(Collectors.toSet()));
-        copyResponseEntity.setConnections(flowContents.getConnections().stream().filter(c -> copyRequestEntity.getConnections().contains(c.getInstanceIdentifier())).collect(Collectors.toSet()));
-
+        // copy the components
+        final CopyResponseEntity copyResponseEntity = serviceFacade.copyComponents(groupId, copyRequestEntity);
         return generateOkResponse(copyResponseEntity).build();
     }
 
@@ -3026,7 +3010,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                     final FlowSnapshotContainer flowSnapshotContainer = new FlowSnapshotContainer(pastedFlowSnapshot);
                     serviceFacade.resolveInheritedControllerServices(flowSnapshotContainer, groupId, NiFiUserUtils.getNiFiUser());
 
-                    // get the current flow snapshot for the specific process group and add all the components being pasted
+                    // prepare the request to add versioned components
                     final VersionedComponentAdditions additions = new VersionedComponentAdditions.Builder()
                             .setProcessors(requestVersionedProcessGroup.getProcessors())
                             .setInputPorts(requestVersionedProcessGroup.getInputPorts())
@@ -3038,7 +3022,15 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                             .setConnections(requestVersionedProcessGroup.getConnections())
                             .build();
 
-                    final PasteResponseEntity pasteResponseEntity = serviceFacade.addVersionedComponents(revision, groupId, additions, getIdGenerationSeed().orElse(null));
+                    final PasteResponseEntity pasteResponseEntity = serviceFacade.pasteComponents(revision, groupId, additions, getIdGenerationSeed().orElse(null));
+
+                    // prune response as necessary
+                    for (ProcessGroupEntity childGroupEntity : pasteResponseEntity.getFlow().getProcessGroups()) {
+                        childGroupEntity.getComponent().setContents(null);
+                    }
+
+                    // create the response entity
+                    populateRemainingSnippetContent(pasteResponseEntity.getFlow());
 
                     return generateOkResponse(pasteResponseEntity).build();
                 }

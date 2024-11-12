@@ -135,6 +135,14 @@ public class NiFiRegistryFlowMapper {
         }
     }
 
+    public void prepareForMappingChildComponents(final ProcessGroup group) {
+        versionedComponentIds.clear();
+
+        // invoke getId which will store the versioned component id for the current group which is required
+        // for mapping the group id in the source/destination of any child connections
+        getId(group.getVersionedComponentId(), group.getIdentifier());
+    }
+
     /**
      * Map the given process group to a versioned process group without any use of an actual flow registry even if the
      * group is currently versioned in a registry.
@@ -170,6 +178,19 @@ public class NiFiRegistryFlowMapper {
             (processGroup, versionedGroup) -> applyVersionControlInformation(processGroup, versionedGroup, flowManager, mapDescendantVersionedFlows);
 
         return mapGroup(group, serviceProvider, applyVersionControlInfo);
+    }
+
+    /**
+     * Map the given process group to a versioned process group without any use of an actual flow registry even if the
+     * group is currently versioned in a registry.
+     *
+     * @param group             the process group to map
+     * @param serviceProvider   the controller service provider to use for mapping
+     * @return a complete versioned process group without any registry related details
+     */
+    public InstantiatedVersionedProcessGroup mapNonVersionedChildProcessGroup(final ProcessGroup group, final ControllerServiceProvider serviceProvider) {
+        // always include descendant flows and do not apply any registry versioning info that may be present in the group
+        return mapGroup(group, serviceProvider, (processGroup, versionedGroup) -> true);
     }
 
     private boolean applyVersionControlInformation(final ProcessGroup processGroup, final VersionedProcessGroup versionedGroup, final FlowManager flowManager,

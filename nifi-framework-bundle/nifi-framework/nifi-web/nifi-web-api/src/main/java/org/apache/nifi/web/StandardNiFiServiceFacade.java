@@ -125,9 +125,14 @@ import org.apache.nifi.flow.VersionedControllerService;
 import org.apache.nifi.flow.VersionedExternalFlow;
 import org.apache.nifi.flow.VersionedExternalFlowMetadata;
 import org.apache.nifi.flow.VersionedFlowCoordinates;
+import org.apache.nifi.flow.VersionedFunnel;
+import org.apache.nifi.flow.VersionedLabel;
 import org.apache.nifi.flow.VersionedParameterContext;
+import org.apache.nifi.flow.VersionedPort;
 import org.apache.nifi.flow.VersionedProcessGroup;
+import org.apache.nifi.flow.VersionedProcessor;
 import org.apache.nifi.flow.VersionedPropertyDescriptor;
+import org.apache.nifi.flow.VersionedRemoteProcessGroup;
 import org.apache.nifi.flow.VersionedReportingTask;
 import org.apache.nifi.flow.VersionedReportingTaskSnapshot;
 import org.apache.nifi.flowanalysis.FlowAnalysisRule;
@@ -192,11 +197,13 @@ import org.apache.nifi.registry.flow.diff.FlowDifference;
 import org.apache.nifi.registry.flow.diff.StandardComparableDataFlow;
 import org.apache.nifi.registry.flow.diff.StandardFlowComparator;
 import org.apache.nifi.registry.flow.diff.StaticDifferenceDescriptor;
+import org.apache.nifi.registry.flow.mapping.FlowMappingOptions;
 import org.apache.nifi.registry.flow.mapping.InstantiatedVersionedComponent;
 import org.apache.nifi.registry.flow.mapping.InstantiatedVersionedPort;
 import org.apache.nifi.registry.flow.mapping.InstantiatedVersionedProcessGroup;
 import org.apache.nifi.registry.flow.mapping.InstantiatedVersionedRemoteGroupPort;
 import org.apache.nifi.registry.flow.mapping.NiFiRegistryFlowMapper;
+import org.apache.nifi.registry.flow.mapping.VersionedComponentStateLookup;
 import org.apache.nifi.remote.RemoteGroupPort;
 import org.apache.nifi.reporting.Bulletin;
 import org.apache.nifi.reporting.BulletinQuery;
@@ -325,6 +332,8 @@ import org.apache.nifi.web.api.entity.ControllerConfigurationEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceReferencingComponentEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceReferencingComponentsEntity;
+import org.apache.nifi.web.api.entity.CopyRequestEntity;
+import org.apache.nifi.web.api.entity.CopyResponseEntity;
 import org.apache.nifi.web.api.entity.CurrentUserEntity;
 import org.apache.nifi.web.api.entity.FlowAnalysisResultEntity;
 import org.apache.nifi.web.api.entity.FlowAnalysisRuleEntity;
@@ -429,6 +438,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -5213,6 +5223,73 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     }
 
     @Override
+    public CopyResponseEntity copyComponents(final String groupId, final CopyRequestEntity copyRequest) {
+        final ProcessGroup processGroup = processGroupDAO.getProcessGroup(groupId);
+
+        final FlowMappingOptions mappingOptions = new FlowMappingOptions.Builder()
+                .sensitiveValueEncryptor(null)
+                .stateLookup(VersionedComponentStateLookup.ENABLED_OR_DISABLED)
+                .componentIdLookup((currentVersionedId, componentId, versionedUuidGenerator) -> UUID.randomUUID().toString())
+                .mapPropertyDescriptors(false)
+                .mapSensitiveConfiguration(false)
+                .mapInstanceIdentifiers(true)
+                .mapControllerServiceReferencesToVersionedId(true)
+                .mapFlowRegistryClientId(false)
+                .mapAssetReferences(false)
+                .build();
+
+        final NiFiRegistryFlowMapper mapper = new NiFiRegistryFlowMapper(controllerFacade.getExtensionManager(), mappingOptions);
+        mapper.prepareForMappingChildComponents(processGroup);
+
+        final ControllerServiceProvider controllerServiceProvider = controllerFacade.getControllerServiceProvider();
+        final Set<VersionedProcessGroup> versionedProcessGroups = processGroup.getProcessGroups().stream()
+                .filter(pg -> copyRequest.getProcessGroups().contains(pg.getIdentifier()))
+                .map(pg -> mapper.mapNonVersionedChildProcessGroup(pg, controllerServiceProvider))
+                .collect(Collectors.toSet());
+        final Set<VersionedRemoteProcessGroup> versionedRemoteProcessGroups = processGroup.getRemoteProcessGroups().stream()
+                .filter(rpg -> copyRequest.getRemoteProcessGroups().contains(rpg.getIdentifier()))
+                .map(mapper::mapRemoteProcessGroup)
+                .collect(Collectors.toSet());
+        final Set<VersionedProcessor> versionedProcessors = processGroup.getProcessors().stream()
+                .filter(p -> copyRequest.getProcessors().contains(p.getIdentifier()))
+                .map(p -> mapper.mapProcessor(p, controllerServiceProvider, Collections.emptySet(), Collections.emptyMap()))
+                .collect(Collectors.toSet());
+        final Set<VersionedPort> versionedInputPorts = processGroup.getInputPorts().stream()
+                .filter(ip -> copyRequest.getInputPorts().contains(ip.getIdentifier()))
+                .map(mapper::mapPort)
+                .collect(Collectors.toSet());
+        final Set<VersionedPort> versionedOutputPorts = processGroup.getOutputPorts().stream()
+                .filter(op -> copyRequest.getOutputPorts().contains(op.getIdentifier()))
+                .map(mapper::mapPort)
+                .collect(Collectors.toSet());
+        final Set<VersionedFunnel> versionedFunnels = processGroup.getFunnels().stream()
+                .filter(f -> copyRequest.getFunnels().contains(f.getIdentifier()))
+                .map(mapper::mapFunnel)
+                .collect(Collectors.toSet());
+        final Set<VersionedLabel> versionedLabels = processGroup.getLabels().stream()
+                .filter(l -> copyRequest.getLabels().contains(l.getIdentifier()))
+                .map(mapper::mapLabel)
+                .collect(Collectors.toSet());
+        final Set<VersionedConnection> versionedConnections = processGroup.getConnections().stream()
+                .filter(c -> copyRequest.getConnections().contains(c.getIdentifier()))
+                .map(mapper::mapConnection)
+                .collect(Collectors.toSet());
+
+        // build the copy response payload
+        final CopyResponseEntity copyResponseEntity = new CopyResponseEntity();
+        copyResponseEntity.setProcessGroups(versionedProcessGroups);
+        copyResponseEntity.setRemoteProcessGroups(versionedRemoteProcessGroups);
+        copyResponseEntity.setProcessors(versionedProcessors);
+        copyResponseEntity.setInputPorts(versionedInputPorts);
+        copyResponseEntity.setOutputPorts(versionedOutputPorts);
+        copyResponseEntity.setFunnels(versionedFunnels);
+        copyResponseEntity.setLabels(versionedLabels);
+        copyResponseEntity.setConnections(versionedConnections);
+
+        return copyResponseEntity;
+    }
+
+    @Override
     public RegisteredFlowSnapshot getCurrentFlowSnapshotByGroupId(final String processGroupId) {
         return getCurrentFlowSnapshotByGroupId(processGroupId, false);
     }
@@ -6073,7 +6150,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     }
 
     @Override
-    public PasteResponseEntity addVersionedComponents(final Revision revision, final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
+    public PasteResponseEntity pasteComponents(final Revision revision, final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
         final NiFiUser user = NiFiUserUtils.getNiFiUser();
 
         final RevisionUpdate<FlowSnippetDTO> snapshot = revisionManager.updateRevision(new StandardRevisionClaim(revision), user, () -> {
