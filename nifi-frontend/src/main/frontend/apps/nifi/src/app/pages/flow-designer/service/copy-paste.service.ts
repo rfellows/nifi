@@ -63,14 +63,20 @@ export class CopyPasteService {
         );
     }
 
+    public isCopiedContentInView(copyResponse: CopyResponseEntity): boolean {
+        const bbox = this.calculateBoundingBoxForCopiedContent(copyResponse);
+        return this.canvasView.isBoundingBoxInViewport(bbox, false);
+    }
+
     /**
      * Use when pasting components to the same process group they were copied from and some
      * part of those components are still visible on canvas
      * @param copyResponse
-     * @param offset
+     * @param pasteIncrement how many times the content has been pasted already. used to determine the overall offset.
      * @private
      */
-    public toOffsetPasteRequest(copyResponse: CopyResponseEntity, offset: number = 25): PasteRequest {
+    public toOffsetPasteRequest(copyResponse: CopyResponseEntity, pasteIncrement: number = 0): PasteRequest {
+        const offset = 25;
         const paste: PasteRequest = {
             copyResponse: this.cloneCopyResponseEntity(copyResponse)
         };
@@ -78,8 +84,8 @@ export class CopyPasteService {
         Object.values(paste.copyResponse).forEach((values: ComponentEntity[]) => {
             values.forEach((value) => {
                 const newPos = this.canvasView.getCanvasPosition(value.position);
-                value.position.x = (newPos?.x || value.position.x) + offset;
-                value.position.y = (newPos?.y || value.position.y) + offset;
+                value.position.x = (newPos?.x || value.position.x) + offset * (pasteIncrement + 1);
+                value.position.y = (newPos?.y || value.position.y) + offset * (pasteIncrement + 1);
             });
         });
 

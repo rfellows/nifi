@@ -41,14 +41,14 @@ import {
     throttleTime
 } from 'rxjs';
 import {
-    CopyRequestContext,
+    CopyRequestContext, CopyResponseContext,
     CreateConnectionDialogRequest,
     CreateProcessGroupDialogRequest,
     DeleteComponentResponse,
     GroupComponentsDialogRequest,
     ImportFromRegistryDialogRequest,
     LoadProcessGroupResponse,
-    MoveComponentRequest,
+    MoveComponentRequest, PasteRequest,
     PasteRequestContext,
     PasteRequestEntity,
     SaveVersionDialogRequest,
@@ -68,7 +68,7 @@ import {
 import { Action, Store } from '@ngrx/store';
 import {
     selectAnySelectedComponentIds,
-    selectChangeVersionRequest,
+    selectChangeVersionRequest, selectCopiedContent,
     selectCurrentParameterContext,
     selectCurrentProcessGroupId,
     selectCurrentProcessGroupRevision,
@@ -2238,7 +2238,11 @@ export class FlowEffects {
                             switchMap(() => {
                                 return of(
                                     FlowActions.copySuccess({
-                                        response
+                                        response: {
+                                            copyResponse: response,
+                                            processGroupId,
+                                            pasteCount: 0
+                                        } as CopyResponseContext
                                     })
                                 );
                             }),
@@ -2272,25 +2276,44 @@ export class FlowEffects {
             map((action) => action.request),
             concatLatestFrom(() => [
                 this.store.select(selectCurrentProcessGroupId),
-                this.store.select(selectCurrentProcessGroupRevision)
+                this.store.select(selectCurrentProcessGroupRevision),
+                this.store.select(selectCopiedContent)
             ]),
-            switchMap(([request, processGroupId, revision]) => {
-                // TODO: determine if the paste should be positioned based off of selected items or centered
-                const centeredPasteRequest = this.copyPasteService.toCenteredPasteRequest(request);
+            switchMap(([request, processGroupId, revision, copiedContent]) => {
+                let pasteRequest: PasteRequest | null = null;
+
+                // Determine if the paste should be positioned based off of previously copied items or centered.
+                //   * The current process group is the same as the content that was last copied
+                //   * And, the last copied content is the same as the content being pasted
+                //   * And, the original content is still in the canvas view
+                if (copiedContent && processGroupId === copiedContent.processGroupId) {
+                    // TODO: (copiedContent.copyResponse.id === request.id) {
+                    const isInView = this.copyPasteService.isCopiedContentInView(copiedContent.copyResponse);
+                    if (isInView) {
+                        pasteRequest = this.copyPasteService.toOffsetPasteRequest(request, copiedContent.pasteCount);
+                    }
+                    // }
+                }
+
+                // If no paste request was created before, create one that is centered in the current canvas view
+                if (!pasteRequest) {
+                    pasteRequest = this.copyPasteService.toCenteredPasteRequest(request);
+                }
+
                 const payload: PasteRequestEntity = {
-                    copyResponse: centeredPasteRequest.copyResponse,
+                    copyResponse: pasteRequest.copyResponse,
                     revision
                 };
-                const pasteRequest: PasteRequestContext = {
+                const pasteRequestContext: PasteRequestContext = {
                     pasteRequest: payload,
                     processGroupId
                 };
-                return from(this.copyPasteService.paste(pasteRequest)).pipe(
+                return from(this.copyPasteService.paste(pasteRequestContext)).pipe(
                     map((response) => {
                         return FlowActions.pasteSuccess({
                             response: {
                                 ...response,
-                                pasteRequest: centeredPasteRequest
+                                pasteRequest
                             }
                         });
                     }),

@@ -460,7 +460,11 @@ export interface CopyRequest {
 export interface CopyRequestContext extends CopyRequest {
     processGroupId: string;
 }
-
+export interface CopyResponseContext {
+    copyResponse: CopyResponseEntity;
+    processGroupId: string;
+    pasteCount: number;
+}
 export interface CopyRequestEntity {
     processGroups?: string[];
     remoteProcessGroups?: string[];
@@ -667,6 +671,7 @@ export interface FlowState {
     flowStatus: ControllerStatusEntity;
     refreshRpgDetails: RefreshRemoteProcessGroupPollingDetailsRequest | null;
     controllerBulletins: ControllerBulletinsEntity;
+    copiedContent: CopyResponseContext | null;
     dragging: boolean;
     transitionRequired: boolean;
     skipTransform: boolean;
