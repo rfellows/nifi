@@ -157,15 +157,14 @@ export class CopyPasteService {
                     height: copiedBBox.height,
                     width: copiedBBox.width,
                     x: copiedBBox.x + centerOffset.x,
-                    y: copiedBBox.y + centerOffset.y,
-                    scale: Math.floor(
-                        Math.min(canvasBBox.width / copiedBBox.width, canvasBBox.height / copiedBBox.height)
-                    )
+                    y: copiedBBox.y + centerOffset.y
                 };
 
                 const willItFit = this.canvasView.isBoundingBoxInViewport(paste.bbox, true);
                 if (!willItFit) {
                     paste.fitToScreen = true;
+                    const scale = Math.min(canvasBBox.width / copiedBBox.width, canvasBBox.height / copiedBBox.height);
+                    paste.bbox.scale = scale * 0.95; // leave a bit of padding around the newly centered selection
                 }
             }
         }
