@@ -5230,7 +5230,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 .sensitiveValueEncryptor(null)
                 .stateLookup(VersionedComponentStateLookup.ENABLED_OR_DISABLED)
                 .componentIdLookup((currentVersionedId, componentId, versionedUuidGenerator) -> UUID.randomUUID().toString())
-                .mapPropertyDescriptors(false)
+                .mapPropertyDescriptors(true)
                 .mapSensitiveConfiguration(false)
                 .mapInstanceIdentifiers(true)
                 .mapControllerServiceReferencesToVersionedId(true)
@@ -5269,7 +5269,9 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
 
         // include any top level services as external as the top level isn't included
         final Map<String, ExternalControllerServiceReference> externalControllerServices = nonVersionedProcessGroup.getExternalControllerServiceReferences();
-        nonVersionedProcessGroup.getControllerServices().forEach(vcs -> {
+        nonVersionedProcessGroup.getControllerServices().stream()
+                .filter(cs -> isServiceReferenced(cs, nonVersionedProcessGroup))
+                .forEach(vcs -> {
             final ExternalControllerServiceReference externalControllerService = new ExternalControllerServiceReference();
             externalControllerService.setIdentifier(vcs.getIdentifier());
             externalControllerService.setName(vcs.getName());
@@ -5290,6 +5292,20 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         copyResponseEntity.setConnections(versionedConnections);
 
         return copyResponseEntity;
+    }
+
+    private boolean isServiceReferenced(final VersionedControllerService service, final VersionedProcessGroup group) {
+        final boolean usedInService = group.getControllerServices().stream().anyMatch(cs -> cs.getProperties().containsValue(service.getIdentifier()));
+        if (usedInService) {
+            return true;
+        }
+
+        final boolean usedInProcessor = group.getProcessors().stream().anyMatch(p -> p.getProperties().containsValue(service.getIdentifier()));
+        if (usedInProcessor) {
+            return true;
+        }
+
+        return group.getProcessGroups().stream().anyMatch(pg -> isServiceReferenced(service, pg));
     }
 
     @Override
