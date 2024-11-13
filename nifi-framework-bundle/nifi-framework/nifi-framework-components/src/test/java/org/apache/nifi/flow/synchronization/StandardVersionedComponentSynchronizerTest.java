@@ -128,6 +128,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -416,7 +417,7 @@ public class StandardVersionedComponentSynchronizerTest {
         assertEquals(ENCODED_TEXT, propertyValue);
 
         verify(group).addControllerService(any(ControllerServiceNode.class));
-        verify(controllerServiceNode).setName(eq(versionedService.getName()));
+        verify(controllerServiceNode, atLeastOnce()).setName(eq(versionedService.getName()));
         verify(controllerServiceNode).migrateConfiguration(propertiesCaptor.capture(), any());
         migratedProperties = propertiesCaptor.getValue();
         propertyValue = migratedProperties.get("abc");

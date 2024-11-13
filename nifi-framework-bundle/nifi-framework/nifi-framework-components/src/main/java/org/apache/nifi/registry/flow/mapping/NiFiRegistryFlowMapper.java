@@ -172,19 +172,6 @@ public class NiFiRegistryFlowMapper {
         return mapGroup(group, serviceProvider, applyVersionControlInfo);
     }
 
-    /**
-     * Map the given process group to a versioned process group without any use of an actual flow registry even if the
-     * group is currently versioned in a registry.
-     *
-     * @param group             the process group to map
-     * @param serviceProvider   the controller service provider to use for mapping
-     * @return a complete versioned process group without any registry related details
-     */
-    public InstantiatedVersionedProcessGroup mapNonVersionedChildProcessGroup(final ProcessGroup group, final ControllerServiceProvider serviceProvider) {
-        // always include descendant flows and do not apply any registry versioning info that may be present in the group
-        return mapGroup(group, serviceProvider, (processGroup, versionedGroup) -> true);
-    }
-
     private boolean applyVersionControlInformation(final ProcessGroup processGroup, final VersionedProcessGroup versionedGroup, final FlowManager flowManager,
                                                    final boolean mapDescendantVersionedFlows) {
         final VersionControlInformation versionControlInfo = processGroup.getVersionControlInformation();
@@ -433,8 +420,8 @@ public class NiFiRegistryFlowMapper {
         versionedTask.setComponentType(ComponentType.REPORTING_TASK);
         versionedTask.setName(taskNode.getName());
 
-        versionedTask.setProperties(mapProperties(taskNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
-        versionedTask.setPropertyDescriptors(mapPropertyDescriptors(taskNode));
+        versionedTask.setProperties(mapProperties(taskNode, serviceProvider));
+        versionedTask.setPropertyDescriptors(mapPropertyDescriptors(taskNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
         versionedTask.setSchedulingPeriod(taskNode.getSchedulingPeriod());
         versionedTask.setSchedulingStrategy(taskNode.getSchedulingStrategy().name());
         versionedTask.setType(taskNode.getCanonicalClassName());
@@ -454,8 +441,8 @@ public class NiFiRegistryFlowMapper {
         versionedRule.setComponentType(ComponentType.FLOW_ANALYSIS_RULE);
         versionedRule.setName(flowAnalysisRuleNode.getName());
 
-        versionedRule.setProperties(mapProperties(flowAnalysisRuleNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
-        versionedRule.setPropertyDescriptors(mapPropertyDescriptors(flowAnalysisRuleNode));
+        versionedRule.setProperties(mapProperties(flowAnalysisRuleNode, serviceProvider));
+        versionedRule.setPropertyDescriptors(mapPropertyDescriptors(flowAnalysisRuleNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
         versionedRule.setEnforcementPolicy(flowAnalysisRuleNode.getEnforcementPolicy());
         versionedRule.setType(flowAnalysisRuleNode.getCanonicalClassName());
         versionedRule.setScheduledState(flowMappingOptions.getStateLookup().getState(flowAnalysisRuleNode));
@@ -475,8 +462,8 @@ public class NiFiRegistryFlowMapper {
         versionedParameterProvider.setComponentType(ComponentType.PARAMETER_PROVIDER);
         versionedParameterProvider.setName(parameterProviderNode.getName());
 
-        versionedParameterProvider.setProperties(mapProperties(parameterProviderNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
-        versionedParameterProvider.setPropertyDescriptors(mapPropertyDescriptors(parameterProviderNode));
+        versionedParameterProvider.setProperties(mapProperties(parameterProviderNode, serviceProvider));
+        versionedParameterProvider.setPropertyDescriptors(mapPropertyDescriptors(parameterProviderNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
         versionedParameterProvider.setType(parameterProviderNode.getCanonicalClassName());
 
         return versionedParameterProvider;
@@ -496,8 +483,8 @@ public class NiFiRegistryFlowMapper {
         versionedClient.setName(clientNode.getName());
         versionedClient.setDescription(clientNode.getDescription());
 
-        versionedClient.setProperties(mapProperties(clientNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
-        versionedClient.setPropertyDescriptors(mapPropertyDescriptors(clientNode));
+        versionedClient.setProperties(mapProperties(clientNode, serviceProvider));
+        versionedClient.setPropertyDescriptors(mapPropertyDescriptors(clientNode, serviceProvider, Collections.emptySet(), Collections.emptyMap()));
         versionedClient.setType(clientNode.getCanonicalClassName());
 
         return versionedClient;
@@ -518,16 +505,15 @@ public class NiFiRegistryFlowMapper {
         versionedService.setBulletinLevel(controllerService.getBulletinLevel().name());
 
         versionedService.setControllerServiceApis(mapControllerServiceApis(controllerService));
-        versionedService.setProperties(mapProperties(controllerService, serviceProvider, includedGroupIds, externalControllerServiceReferences));
-        versionedService.setPropertyDescriptors(mapPropertyDescriptors(controllerService));
+        versionedService.setProperties(mapProperties(controllerService, serviceProvider));
+        versionedService.setPropertyDescriptors(mapPropertyDescriptors(controllerService, serviceProvider, includedGroupIds, externalControllerServiceReferences));
         versionedService.setType(controllerService.getCanonicalClassName());
         versionedService.setScheduledState(flowMappingOptions.getStateLookup().getState(controllerService));
 
         return versionedService;
     }
 
-    private Map<String, String> mapProperties(final ComponentNode component, final ControllerServiceProvider serviceProvider, final Set<String> includedGroupIds,
-                                              final Map<String, ExternalControllerServiceReference> externalControllerServiceReferences) {
+    private Map<String, String> mapProperties(final ComponentNode component, final ControllerServiceProvider serviceProvider) {
         final Map<String, String> mapped = new HashMap<>();
 
         component.getProperties().keySet().stream()
@@ -538,22 +524,12 @@ public class NiFiRegistryFlowMapper {
                     value = property.getDefaultValue();
                 }
 
-                final Class<?> referencedServiceType = property.getControllerServiceDefinition();
-                if (value != null && referencedServiceType != null && flowMappingOptions.isMapControllerServiceReferencesToVersionedId()) {
+                if (value != null && property.getControllerServiceDefinition() != null && flowMappingOptions.isMapControllerServiceReferencesToVersionedId()) {
                     // Property references a Controller Service. Instead of storing the existing value, we want
                     // to store the Versioned Component ID of the service.
                     final ControllerServiceNode controllerService = serviceProvider.getControllerServiceNode(value);
                     if (controllerService != null) {
                         value = getId(controllerService.getVersionedComponentId(), controllerService.getIdentifier());
-
-                        // if mapping a reporting task, serviceGroupId will be null and we don't want to produce external service references
-                        final String serviceGroupId = controllerService.getProcessGroupIdentifier();
-                        if (serviceGroupId != null && !includedGroupIds.contains(serviceGroupId)) {
-                            final ExternalControllerServiceReference controllerServiceReference = new ExternalControllerServiceReference();
-                            controllerServiceReference.setIdentifier(value);
-                            controllerServiceReference.setName(controllerService.getName());
-                            externalControllerServiceReferences.put(value, controllerServiceReference);
-                        }
                     }
                 }
 
@@ -601,7 +577,8 @@ public class NiFiRegistryFlowMapper {
         return !propertyConfiguration.getParameterReferences().isEmpty();
     }
 
-    private Map<String, VersionedPropertyDescriptor> mapPropertyDescriptors(final ComponentNode component) {
+    private Map<String, VersionedPropertyDescriptor> mapPropertyDescriptors(final ComponentNode component, final ControllerServiceProvider serviceProvider, final Set<String> includedGroupIds,
+                                                                            final Map<String, ExternalControllerServiceReference> externalControllerServiceReferences) {
 
         if (!flowMappingOptions.isMapPropertyDescriptors()) {
             return Collections.emptyMap();
@@ -620,6 +597,27 @@ public class NiFiRegistryFlowMapper {
 
             final Class<?> referencedServiceType = descriptor.getControllerServiceDefinition();
             versionedDescriptor.setIdentifiesControllerService(referencedServiceType != null);
+
+            if (referencedServiceType != null) {
+                final String value = component.getProperty(descriptor).getRawValue();
+                if (value != null) {
+                    final ControllerServiceNode serviceNode = serviceProvider.getControllerServiceNode(value);
+                    if (serviceNode == null) {
+                        continue;
+                    }
+
+                    // if mapping a reporting task, serviceGroupId will be null and we don't want to produce external service references
+                    final String serviceGroupId = serviceNode.getProcessGroupIdentifier();
+                    if (serviceGroupId != null && !includedGroupIds.contains(serviceGroupId)) {
+                        final String serviceId = getId(serviceNode.getVersionedComponentId(), serviceNode.getIdentifier());
+
+                        final ExternalControllerServiceReference controllerServiceReference = new ExternalControllerServiceReference();
+                        controllerServiceReference.setIdentifier(serviceId);
+                        controllerServiceReference.setName(serviceNode.getName());
+                        externalControllerServiceReferences.put(serviceId, controllerServiceReference);
+                    }
+                }
+            }
 
             descriptors.put(descriptor.getName(), versionedDescriptor);
         }
@@ -754,8 +752,8 @@ public class NiFiRegistryFlowMapper {
         processor.setName(procNode.getName());
         processor.setPenaltyDuration(procNode.getPenalizationPeriod());
         processor.setPosition(mapPosition(procNode.getPosition()));
-        processor.setProperties(mapProperties(procNode, serviceProvider, includedGroupIds, externalControllerServiceReferences));
-        processor.setPropertyDescriptors(mapPropertyDescriptors(procNode));
+        processor.setProperties(mapProperties(procNode, serviceProvider));
+        processor.setPropertyDescriptors(mapPropertyDescriptors(procNode, serviceProvider, includedGroupIds, externalControllerServiceReferences));
         processor.setRunDurationMillis(procNode.getRunDuration(TimeUnit.MILLISECONDS));
         processor.setSchedulingPeriod(procNode.getSchedulingPeriod());
         processor.setSchedulingStrategy(procNode.getSchedulingStrategy().name());
