@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -72,7 +73,9 @@ import org.apache.nifi.authorization.user.NiFiUserUtils;
 import org.apache.nifi.cluster.manager.NodeResponse;
 import org.apache.nifi.components.ConfigurableComponent;
 import org.apache.nifi.connectable.ConnectableType;
+import org.apache.nifi.flow.ConnectableComponent;
 import org.apache.nifi.flow.ExecutionEngine;
+import org.apache.nifi.flow.VersionedComponent;
 import org.apache.nifi.flow.VersionedFlowCoordinates;
 import org.apache.nifi.flow.VersionedParameterContext;
 import org.apache.nifi.flow.VersionedProcessGroup;
@@ -139,7 +142,6 @@ import org.apache.nifi.web.api.request.ClientIdParameter;
 import org.apache.nifi.web.api.request.LongParameter;
 import org.apache.nifi.web.util.ParameterContextReplacer;
 import org.glassfish.jersey.media.multipart.FormDataParam;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -2979,6 +2981,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         }
 
         final VersionedProcessGroup versionedProcessGroup = getVersionedProcessGroup(pasteRequestEntity);
+        mapVersionedIds(versionedProcessGroup, new HashMap<>(), new HashMap<>());
 
         final Revision requestRevision = getRevision(pasteRequestEntity.getRevision(), groupId);
         return withWriteLock(
@@ -2994,6 +2997,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                         final ComponentAuthorizable restrictedComponentAuthorizable = lookup.getConfigurableComponent(restrictedComponent);
                         authorizeRestrictions(authorizer, restrictedComponentAuthorizable);
                     });
+
+                    authorizeInstanceIds(versionedProcessGroup, lookup);
                 },
                 () -> serviceFacade.verifyComponentTypes(versionedProcessGroup),
                 (revision, requestPasteRequestEntity) -> {
@@ -3037,8 +3042,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         );
     }
 
-    @NotNull
-    private static VersionedProcessGroup getVersionedProcessGroup(PasteRequestEntity pasteRequestEntity) {
+    private static VersionedProcessGroup getVersionedProcessGroup(final PasteRequestEntity pasteRequestEntity) {
         final CopyResponseEntity copyResponse = pasteRequestEntity.getCopyResponse();
         final VersionedProcessGroup versionedProcessGroup = new VersionedProcessGroup();
         versionedProcessGroup.setProcessors(new HashSet<>(copyResponse.getProcessors()));
@@ -3052,6 +3056,123 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         return versionedProcessGroup;
     }
 
+    private void mapVersionedIds(final VersionedProcessGroup group, final Map<String, String> idMapping, final Map<String, String> serviceIdMapping) {
+        final String newGroupId = generateUuid();
+        idMapping.put(group.getIdentifier(), newGroupId);
+        group.setIdentifier(newGroupId);
+
+        group.getControllerServices().forEach(cs -> {
+            final String newId = generateUuid();
+            idMapping.put(cs.getIdentifier(), newId);
+            serviceIdMapping.put(cs.getIdentifier(), newId);
+            cs.setIdentifier(newId);
+        });
+        group.getControllerServices().forEach(cs -> {
+            cs.getProperties().entrySet().stream()
+                    .filter(propertyEntry -> serviceIdMapping.containsKey(propertyEntry.getValue()))
+                    .findFirst()
+                    .ifPresent(serviceEntry -> serviceEntry.setValue(serviceIdMapping.get(serviceEntry.getValue())));
+        });
+        group.getProcessors().forEach(p -> {
+            final String newId = generateUuid();
+            idMapping.put(p.getIdentifier(), newId);
+            p.setIdentifier(newId);
+
+            p.getProperties().entrySet().stream()
+                    .filter(propertyEntry -> serviceIdMapping.containsKey(propertyEntry.getValue()))
+                    .findFirst()
+                    .ifPresent(serviceEntry -> serviceEntry.setValue(serviceIdMapping.get(serviceEntry.getValue())));
+        });
+        group.getInputPorts().forEach(ip -> {
+            final String newId = generateUuid();
+            idMapping.put(ip.getIdentifier(), newId);
+            ip.setIdentifier(newId);
+        });
+        group.getOutputPorts().forEach(op -> {
+            final String newId = generateUuid();
+            idMapping.put(op.getIdentifier(), newId);
+            op.setIdentifier(newId);
+        });
+        group.getFunnels().forEach(f -> {
+            final String newId = generateUuid();
+            idMapping.put(f.getIdentifier(), newId);
+            f.setIdentifier(newId);
+        });
+        group.getLabels().forEach(l -> {
+            final String newId = generateUuid();
+            idMapping.put(l.getIdentifier(), newId);
+            l.setIdentifier(newId);
+        });
+        group.getRemoteProcessGroups().forEach(rpg -> {
+            final String newId = generateUuid();
+            idMapping.put(rpg.getIdentifier(), newId);
+            rpg.setIdentifier(newId);
+
+            if (rpg.getInputPorts() != null) {
+                rpg.getInputPorts().forEach(rip -> {
+                    final String newRipId = generateUuid();
+                    idMapping.put(rip.getIdentifier(), newRipId);
+                    rip.setIdentifier(newRipId);
+                });
+            }
+            if (rpg.getOutputPorts() != null) {
+                rpg.getOutputPorts().forEach(rop -> {
+                    final String newRopId = generateUuid();
+                    idMapping.put(rop.getIdentifier(), newRopId);
+                    rop.setIdentifier(newRopId);
+                });
+            }
+        });
+        group.getProcessGroups().forEach(cpg -> {
+            mapVersionedIds(cpg, idMapping, serviceIdMapping);
+        });
+        group.getConnections().forEach(c -> {
+            final String newId = generateUuid();
+            idMapping.put(c.getIdentifier(), newId);
+            c.setIdentifier(newId);
+
+            if (c.getSource() != null) {
+                final ConnectableComponent source = c.getSource();
+                final String sourceId = source.getId();
+                final String newSourceId = idMapping.get(sourceId);
+                if (newSourceId != null) {
+                    source.setId(newSourceId);
+                }
+            }
+            if (c.getDestination() != null) {
+                final ConnectableComponent destination = c.getDestination();
+                final String destinationId = destination.getId();
+                final String newDestinationId = idMapping.get(destinationId);
+                if (newDestinationId != null) {
+                    destination.setId(newDestinationId);
+                }
+            }
+        });
+    }
+
+    private void authorizeInstanceIds(final VersionedProcessGroup group, final AuthorizableLookup lookup) {
+        final Set<String> processorInstanceIds = group.getProcessors().stream()
+                .map(VersionedComponent::getInstanceIdentifier)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        lookup.getRootProcessGroup().getEncapsulatedProcessors(ca -> processorInstanceIds.contains(ca.getIdentifier())).forEach(ca -> {
+            ca.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+        });
+
+        final Set<String> serviceInstanceIds = group.getControllerServices().stream()
+                .map(VersionedComponent::getInstanceIdentifier)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        lookup.getRootProcessGroup().getEncapsulatedControllerServices(ca -> serviceInstanceIds.contains(ca.getIdentifier())).forEach(ca -> {
+            ca.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+        });
+
+        group.getProcessGroups().forEach(cpg -> {
+            authorizeInstanceIds(cpg, lookup);
+        });
+    }
 
     /**
      * Replace the Process Group contents with the given ID with the specified Process Group contents.

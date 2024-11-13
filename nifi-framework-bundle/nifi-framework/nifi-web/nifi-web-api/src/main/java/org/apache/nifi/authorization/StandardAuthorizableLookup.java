@@ -77,6 +77,7 @@ import org.springframework.stereotype.Component;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Component
@@ -292,6 +293,11 @@ public class StandardAuthorizableLookup implements AuthorizableLookup {
     public ConnectionAuthorizable getConnection(final String id) {
         final Connection connection = connectionDAO.getConnection(id);
         return new StandardConnectionAuthorizable(connection);
+    }
+
+    @Override
+    public ProcessGroupAuthorizable getRootProcessGroup() {
+        return getProcessGroup(controllerFacade.getRootGroupId());
     }
 
     @Override
@@ -1222,6 +1228,13 @@ public class StandardAuthorizableLookup implements AuthorizableLookup {
         }
 
         @Override
+        public Set<ComponentAuthorizable> getEncapsulatedProcessors(Predicate<org.apache.nifi.authorization.resource.ComponentAuthorizable> processorFilter) {
+            return processGroup.findAllProcessors().stream()
+                    .filter(processorFilter)
+                    .map(processorNode -> new ProcessorComponentAuthorizable(processorNode, extensionManager)).collect(Collectors.toSet());
+        }
+
+        @Override
         public Set<ConnectionAuthorizable> getEncapsulatedConnections() {
             return processGroup.findAllConnections().stream().map(
                 StandardConnectionAuthorizable::new).collect(Collectors.toSet());
@@ -1262,6 +1275,13 @@ public class StandardAuthorizableLookup implements AuthorizableLookup {
         public Set<ComponentAuthorizable> getEncapsulatedControllerServices() {
             return processGroup.findAllControllerServices().stream().map(
                     controllerServiceNode -> new ControllerServiceComponentAuthorizable(controllerServiceNode, extensionManager)).collect(Collectors.toSet());
+        }
+
+        @Override
+        public Set<ComponentAuthorizable> getEncapsulatedControllerServices(Predicate<org.apache.nifi.authorization.resource.ComponentAuthorizable> serviceFilter) {
+            return processGroup.findAllControllerServices().stream()
+                    .filter(serviceFilter)
+                    .map(controllerServiceNode -> new ControllerServiceComponentAuthorizable(controllerServiceNode, extensionManager)).collect(Collectors.toSet());
         }
     }
 

@@ -135,6 +135,13 @@ public interface AuthorizableLookup {
     ConnectionAuthorizable getConnection(String id);
 
     /**
+     * Get the authorizable root ProcessGroup.
+     *
+     * @return authorizable
+     */
+    ProcessGroupAuthorizable getRootProcessGroup();
+
+    /**
      * Get the authorizable ProcessGroup.
      *
      * @param id process group id
