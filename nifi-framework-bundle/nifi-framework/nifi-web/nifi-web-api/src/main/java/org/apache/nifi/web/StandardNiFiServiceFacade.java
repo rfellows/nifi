@@ -6150,11 +6150,59 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         return revisions;
     }
 
+    private void copySensitiveProcessorProperties(final Set<VersionedProcessor> processors) {
+        final FlowManager flowManager = controllerFacade.getFlowManager();
+
+        processors.forEach(p -> {
+            if (p.getInstanceIdentifier() != null) {
+                final ProcessorNode copiedInstance = flowManager.getProcessorNode(p.getInstanceIdentifier());
+                if (copiedInstance != null) {
+                    copiedInstance.getProperties().keySet().stream()
+                            .filter(PropertyDescriptor::isSensitive)
+                            .forEach(pd -> {
+                                p.getProperties().put(pd.getName(), copiedInstance.getRawPropertyValue(pd));
+                            });
+                }
+            }
+        });
+    }
+
+    private void copySenitiveServiceProperties(final Set<VersionedControllerService> services) {
+        final FlowManager flowManager = controllerFacade.getFlowManager();
+
+        services.forEach(s -> {
+            if (s.getInstanceIdentifier() != null) {
+                final ControllerServiceNode copiedInstance = flowManager.getControllerServiceNode(s.getInstanceIdentifier());
+                if (copiedInstance != null) {
+                    copiedInstance.getProperties().keySet().stream()
+                            .filter(PropertyDescriptor::isSensitive)
+                            .forEach(pd -> {
+                                s.getProperties().put(pd.getName(), copiedInstance.getRawPropertyValue(pd));
+                            });
+                }
+            }
+        });
+    }
+
+    private void copySensitiveDescendantProperties(final Set<VersionedProcessGroup> groups) {
+        groups.forEach(pg -> {
+            copySenitiveServiceProperties(pg.getControllerServices());
+            copySensitiveProcessorProperties(pg.getProcessors());
+            copySensitiveDescendantProperties(pg.getProcessGroups());
+        });
+    }
+
     @Override
     public PasteResponseEntity pasteComponents(final Revision revision, final String groupId, final VersionedComponentAdditions additions, final String componentIdSeed) {
         final NiFiUser user = NiFiUserUtils.getNiFiUser();
 
         final RevisionUpdate<FlowSnippetDTO> snapshot = revisionManager.updateRevision(new StandardRevisionClaim(revision), user, () -> {
+            // preprocess the additions and copy over any sensitive properties
+            copySenitiveServiceProperties(additions.getControllerServices());
+            copySensitiveProcessorProperties(additions.getProcessors());
+            copySensitiveDescendantProperties(additions.getProcessGroups());
+
+            // add the versioned components
             final ComponentAdditions componentAdditions = processGroupDAO.addVersionedComponents(groupId, additions, componentIdSeed);
 
             // save
