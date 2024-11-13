@@ -17,6 +17,8 @@
  * under the License.
  */
 
+import { ExternalControllerServiceReference } from '../shared';
+
 export const copyFeatureKey = 'copy';
 
 export interface CopyRequest {
@@ -50,6 +52,7 @@ export interface CopyResponseEntity {
     connections?: any[];
     labels?: any[];
     funnels?: any[];
+    externalControllerServiceReferences?: { [key: string]: ExternalControllerServiceReference };
 }
 export interface CopiedContentInfo {
     copyId: string;
