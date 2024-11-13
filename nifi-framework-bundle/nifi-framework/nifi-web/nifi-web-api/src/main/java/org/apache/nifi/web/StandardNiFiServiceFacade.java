@@ -5239,45 +5239,47 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 .build();
 
         final NiFiRegistryFlowMapper mapper = new NiFiRegistryFlowMapper(controllerFacade.getExtensionManager(), mappingOptions);
-        mapper.prepareForMappingChildComponents(processGroup);
+        final InstantiatedVersionedProcessGroup nonVersionedProcessGroup =
+                mapper.mapNonVersionedProcessGroup(processGroup, controllerFacade.getControllerServiceProvider());
 
-        final ControllerServiceProvider controllerServiceProvider = controllerFacade.getControllerServiceProvider();
-        final Set<VersionedProcessGroup> versionedProcessGroups = processGroup.getProcessGroups().stream()
-                .filter(pg -> copyRequest.getProcessGroups().contains(pg.getIdentifier()))
-                .map(pg -> mapper.mapNonVersionedChildProcessGroup(pg, controllerServiceProvider))
+        final Set<VersionedProcessGroup> versionedProcessGroups = nonVersionedProcessGroup.getProcessGroups().stream()
+                .filter(pg -> copyRequest.getProcessGroups().contains(pg.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedRemoteProcessGroup> versionedRemoteProcessGroups = processGroup.getRemoteProcessGroups().stream()
-                .filter(rpg -> copyRequest.getRemoteProcessGroups().contains(rpg.getIdentifier()))
-                .map(mapper::mapRemoteProcessGroup)
+        final Set<VersionedRemoteProcessGroup> versionedRemoteProcessGroups = nonVersionedProcessGroup.getRemoteProcessGroups().stream()
+                .filter(rpg -> copyRequest.getRemoteProcessGroups().contains(rpg.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedProcessor> versionedProcessors = processGroup.getProcessors().stream()
-                .filter(p -> copyRequest.getProcessors().contains(p.getIdentifier()))
-                .map(p -> mapper.mapProcessor(p, controllerServiceProvider, Collections.emptySet(), Collections.emptyMap()))
+        final Set<VersionedProcessor> versionedProcessors = nonVersionedProcessGroup.getProcessors().stream()
+                .filter(p -> copyRequest.getProcessors().contains(p.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedPort> versionedInputPorts = processGroup.getInputPorts().stream()
-                .filter(ip -> copyRequest.getInputPorts().contains(ip.getIdentifier()))
-                .map(mapper::mapPort)
+        final Set<VersionedPort> versionedInputPorts = nonVersionedProcessGroup.getInputPorts().stream()
+                .filter(ip -> copyRequest.getInputPorts().contains(ip.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedPort> versionedOutputPorts = processGroup.getOutputPorts().stream()
-                .filter(op -> copyRequest.getOutputPorts().contains(op.getIdentifier()))
-                .map(mapper::mapPort)
+        final Set<VersionedPort> versionedOutputPorts = nonVersionedProcessGroup.getOutputPorts().stream()
+                .filter(op -> copyRequest.getOutputPorts().contains(op.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedFunnel> versionedFunnels = processGroup.getFunnels().stream()
-                .filter(f -> copyRequest.getFunnels().contains(f.getIdentifier()))
-                .map(mapper::mapFunnel)
+        final Set<VersionedFunnel> versionedFunnels = nonVersionedProcessGroup.getFunnels().stream()
+                .filter(f -> copyRequest.getFunnels().contains(f.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedLabel> versionedLabels = processGroup.getLabels().stream()
-                .filter(l -> copyRequest.getLabels().contains(l.getIdentifier()))
-                .map(mapper::mapLabel)
+        final Set<VersionedLabel> versionedLabels = nonVersionedProcessGroup.getLabels().stream()
+                .filter(l -> copyRequest.getLabels().contains(l.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedConnection> versionedConnections = processGroup.getConnections().stream()
-                .filter(c -> copyRequest.getConnections().contains(c.getIdentifier()))
-                .map(mapper::mapConnection)
+        final Set<VersionedConnection> versionedConnections = nonVersionedProcessGroup.getConnections().stream()
+                .filter(c -> copyRequest.getConnections().contains(c.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
+
+        // include any top level services as external as the top level isn't included
+        final Map<String, ExternalControllerServiceReference> externalControllerServices = nonVersionedProcessGroup.getExternalControllerServiceReferences();
+        nonVersionedProcessGroup.getControllerServices().forEach(vcs -> {
+            final ExternalControllerServiceReference externalControllerService = new ExternalControllerServiceReference();
+            externalControllerService.setIdentifier(vcs.getIdentifier());
+            externalControllerService.setName(vcs.getName());
+            externalControllerServices.put(vcs.getIdentifier(), externalControllerService);
+        });
 
         // build the copy response payload
         final CopyResponseEntity copyResponseEntity = new CopyResponseEntity();
         copyResponseEntity.setId(UUID.randomUUID().toString());
+        copyResponseEntity.setExternalControllerServiceReferences(externalControllerServices);
         copyResponseEntity.setProcessGroups(versionedProcessGroups);
         copyResponseEntity.setRemoteProcessGroups(versionedRemoteProcessGroups);
         copyResponseEntity.setProcessors(versionedProcessors);
@@ -6150,6 +6152,12 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         return revisions;
     }
 
+    /**
+     * For each versioned processor, if there is an instance id and that instance exists locally,
+     * all sensitive properties from the local instance is copied into the versioned processor.
+     *
+     * @param processors the versioned processors to consider
+     */
     private void copySensitiveProcessorProperties(final Set<VersionedProcessor> processors) {
         final FlowManager flowManager = controllerFacade.getFlowManager();
 
@@ -6167,7 +6175,13 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         });
     }
 
-    private void copySenitiveServiceProperties(final Set<VersionedControllerService> services) {
+    /**
+     * For each versioned service, if there is an instance id and that instance exists locally,
+     * all sensitive properties from the local instance is copied into the versioned service.
+     *
+     * @param services the versioned services to consider
+     */
+    private void copySensitiveServiceProperties(final Set<VersionedControllerService> services) {
         final FlowManager flowManager = controllerFacade.getFlowManager();
 
         services.forEach(s -> {
@@ -6184,9 +6198,15 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         });
     }
 
+    /**
+     * For each versioned group, all versioned processors and services will attempt to copy sensitive
+     * properties from a local instance, if possible.
+     *
+     * @param groups the versioned groups to consider
+     */
     private void copySensitiveDescendantProperties(final Set<VersionedProcessGroup> groups) {
         groups.forEach(pg -> {
-            copySenitiveServiceProperties(pg.getControllerServices());
+            copySensitiveServiceProperties(pg.getControllerServices());
             copySensitiveProcessorProperties(pg.getProcessors());
             copySensitiveDescendantProperties(pg.getProcessGroups());
         });
@@ -6198,7 +6218,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
 
         final RevisionUpdate<FlowSnippetDTO> snapshot = revisionManager.updateRevision(new StandardRevisionClaim(revision), user, () -> {
             // preprocess the additions and copy over any sensitive properties
-            copySenitiveServiceProperties(additions.getControllerServices());
+            copySensitiveServiceProperties(additions.getControllerServices());
             copySensitiveProcessorProperties(additions.getProcessors());
             copySensitiveDescendantProperties(additions.getProcessGroups());
 

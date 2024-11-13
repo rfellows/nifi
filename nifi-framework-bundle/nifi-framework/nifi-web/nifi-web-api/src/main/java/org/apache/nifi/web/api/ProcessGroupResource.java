@@ -2980,7 +2980,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             verifyDisconnectedNodeModification(pasteRequestEntity.getDisconnectedNodeAcknowledged());
         }
 
-        final VersionedProcessGroup versionedProcessGroup = getVersionedProcessGroup(pasteRequestEntity);
+        final CopyResponseEntity copyResponseEntity = pasteRequestEntity.getCopyResponse();
+        final VersionedProcessGroup versionedProcessGroup = getVersionedProcessGroup(copyResponseEntity);
         mapVersionedIds(versionedProcessGroup, new HashMap<>(), new HashMap<>());
 
         final Revision requestRevision = getRevision(pasteRequestEntity.getRevision(), groupId);
@@ -3002,12 +3003,14 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                 },
                 () -> serviceFacade.verifyComponentTypes(versionedProcessGroup),
                 (revision, requestPasteRequestEntity) -> {
-                    final VersionedProcessGroup requestVersionedProcessGroup = getVersionedProcessGroup(requestPasteRequestEntity);
+                    final CopyResponseEntity requestCopyResponseEntity = requestPasteRequestEntity.getCopyResponse();
+                    final VersionedProcessGroup requestVersionedProcessGroup = getVersionedProcessGroup(requestCopyResponseEntity);
 
                     // resolve Bundle info
                     serviceFacade.discoverCompatibleBundles(requestVersionedProcessGroup);
 
                     final RegisteredFlowSnapshot pastedFlowSnapshot = new RegisteredFlowSnapshot();
+                    pastedFlowSnapshot.setExternalControllerServices(requestCopyResponseEntity.getExternalControllerServiceReferences());
                     pastedFlowSnapshot.setFlowContents(requestVersionedProcessGroup);
 
                     // if there are any Controller Services referenced that are inherited from the parent group,
@@ -3042,8 +3045,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         );
     }
 
-    private static VersionedProcessGroup getVersionedProcessGroup(final PasteRequestEntity pasteRequestEntity) {
-        final CopyResponseEntity copyResponse = pasteRequestEntity.getCopyResponse();
+    private static VersionedProcessGroup getVersionedProcessGroup(final CopyResponseEntity copyResponse) {
         final VersionedProcessGroup versionedProcessGroup = new VersionedProcessGroup();
         versionedProcessGroup.setProcessors(new HashSet<>(copyResponse.getProcessors()));
         versionedProcessGroup.setInputPorts(new HashSet<>(copyResponse.getInputPorts()));
@@ -3150,6 +3152,15 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         });
     }
 
+    /**
+     * For the specified versioned process group, identify any versioned processors or services that contain an
+     * instance id. If that instance id, identifies a local processor or service, ensure the user has permissions
+     * to READ the local instance. This is needed because sensitive properties from the local processor or service
+     * will be copied into the new components as part of the paste action.
+     *
+     * @param group the versioned group
+     * @param lookup the authorizable lookup
+     */
     private void authorizeInstanceIds(final VersionedProcessGroup group, final AuthorizableLookup lookup) {
         final Set<String> processorInstanceIds = group.getProcessors().stream()
                 .map(VersionedComponent::getInstanceIdentifier)

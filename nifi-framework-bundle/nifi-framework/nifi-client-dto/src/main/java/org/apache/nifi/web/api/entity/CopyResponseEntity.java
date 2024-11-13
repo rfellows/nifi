@@ -18,6 +18,7 @@ package org.apache.nifi.web.api.entity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.xml.bind.annotation.XmlType;
+import org.apache.nifi.flow.ExternalControllerServiceReference;
 import org.apache.nifi.flow.VersionedConnection;
 import org.apache.nifi.flow.VersionedFunnel;
 import org.apache.nifi.flow.VersionedLabel;
@@ -27,6 +28,7 @@ import org.apache.nifi.flow.VersionedProcessor;
 import org.apache.nifi.flow.VersionedRemoteProcessGroup;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -36,6 +38,8 @@ import java.util.Set;
 public class CopyResponseEntity extends Entity {
 
     private String id;
+
+    private Map<String, ExternalControllerServiceReference> externalControllerServiceReferences;
 
     private Set<VersionedProcessGroup> processGroups = new HashSet<>();
     private Set<VersionedRemoteProcessGroup> remoteProcessGroups = new HashSet<>();
@@ -59,6 +63,21 @@ public class CopyResponseEntity extends Entity {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    /**
+     * The external controller service references.
+     *
+     * @return The external controller service reference
+     */
+    @Schema(description = "The external controller service references."
+    )
+    public Map<String, ExternalControllerServiceReference> getExternalControllerServiceReferences() {
+        return externalControllerServiceReferences;
+    }
+
+    public void setExternalControllerServiceReferences(Map<String, ExternalControllerServiceReference> externalControllerServiceReferences) {
+        this.externalControllerServiceReferences = externalControllerServiceReferences;
     }
 
     /**
