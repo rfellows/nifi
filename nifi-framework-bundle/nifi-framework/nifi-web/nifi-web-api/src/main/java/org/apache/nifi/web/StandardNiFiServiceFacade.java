@@ -5270,7 +5270,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         // include any top level services as external as the top level isn't included
         final Map<String, ExternalControllerServiceReference> externalControllerServices = nonVersionedProcessGroup.getExternalControllerServiceReferences();
         nonVersionedProcessGroup.getControllerServices().stream()
-                .filter(cs -> isServiceReferenced(cs, nonVersionedProcessGroup))
+                .filter(cs -> isServiceReferenced(cs, versionedProcessors, Collections.emptySet(), versionedProcessGroups))
                 .forEach(vcs -> {
             final ExternalControllerServiceReference externalControllerService = new ExternalControllerServiceReference();
             externalControllerService.setIdentifier(vcs.getIdentifier());
@@ -5304,18 +5304,19 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         return copyResponseEntity;
     }
 
-    private boolean isServiceReferenced(final VersionedControllerService service, final VersionedProcessGroup group) {
-        final boolean usedInService = group.getControllerServices().stream().anyMatch(cs -> cs.getProperties().containsValue(service.getIdentifier()));
-        if (usedInService) {
-            return true;
-        }
-
-        final boolean usedInProcessor = group.getProcessors().stream().anyMatch(p -> p.getProperties().containsValue(service.getIdentifier()));
+    private boolean isServiceReferenced(final VersionedControllerService service, final Set<VersionedProcessor> processors,
+                                        final Set<VersionedControllerService> services, final Set<VersionedProcessGroup> groups) {
+        final boolean usedInProcessor = processors.stream().anyMatch(p -> p.getProperties().containsValue(service.getIdentifier()));
         if (usedInProcessor) {
             return true;
         }
 
-        return group.getProcessGroups().stream().anyMatch(pg -> isServiceReferenced(service, pg));
+        final boolean usedInService = services.stream().anyMatch(cs -> cs.getProperties().containsValue(service.getIdentifier()));
+        if (usedInService) {
+            return true;
+        }
+
+        return groups.stream().anyMatch(pg -> isServiceReferenced(service, pg.getProcessors(), pg.getControllerServices(), pg.getProcessGroups()));
     }
 
     @Override
