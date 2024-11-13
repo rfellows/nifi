@@ -5268,9 +5268,14 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 .collect(Collectors.toSet());
 
         // include any top level services as external as the top level isn't included
-        final Map<String, ExternalControllerServiceReference> externalControllerServices = nonVersionedProcessGroup.getExternalControllerServiceReferences();
+        final Map<String, ExternalControllerServiceReference> externalControllerServices =
+                nonVersionedProcessGroup.getExternalControllerServiceReferences().entrySet().stream()
+                        .filter(e -> isServiceReferenced(e.getKey(), versionedProcessors, Collections.emptySet(), versionedProcessGroups))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        // move any service at the current level into external services
         nonVersionedProcessGroup.getControllerServices().stream()
-                .filter(cs -> isServiceReferenced(cs, versionedProcessors, Collections.emptySet(), versionedProcessGroups))
+                .filter(cs -> isServiceReferenced(cs.getIdentifier(), versionedProcessors, Collections.emptySet(), versionedProcessGroups))
                 .forEach(vcs -> {
             final ExternalControllerServiceReference externalControllerService = new ExternalControllerServiceReference();
             externalControllerService.setIdentifier(vcs.getIdentifier());
@@ -5304,19 +5309,19 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         return copyResponseEntity;
     }
 
-    private boolean isServiceReferenced(final VersionedControllerService service, final Set<VersionedProcessor> processors,
+    private boolean isServiceReferenced(final String serviceId, final Set<VersionedProcessor> processors,
                                         final Set<VersionedControllerService> services, final Set<VersionedProcessGroup> groups) {
-        final boolean usedInProcessor = processors.stream().anyMatch(p -> p.getProperties().containsValue(service.getIdentifier()));
+        final boolean usedInProcessor = processors.stream().anyMatch(p -> p.getProperties().containsValue(serviceId));
         if (usedInProcessor) {
             return true;
         }
 
-        final boolean usedInService = services.stream().anyMatch(cs -> cs.getProperties().containsValue(service.getIdentifier()));
+        final boolean usedInService = services.stream().anyMatch(cs -> cs.getProperties().containsValue(serviceId));
         if (usedInService) {
             return true;
         }
 
-        return groups.stream().anyMatch(pg -> isServiceReferenced(service, pg.getProcessors(), pg.getControllerServices(), pg.getProcessGroups()));
+        return groups.stream().anyMatch(pg -> isServiceReferenced(serviceId, pg.getProcessors(), pg.getControllerServices(), pg.getProcessGroups()));
     }
 
     @Override
