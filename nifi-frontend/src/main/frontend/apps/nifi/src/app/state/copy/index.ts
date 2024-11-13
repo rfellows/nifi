@@ -53,6 +53,8 @@ export interface CopyResponseEntity {
     labels?: any[];
     funnels?: any[];
     externalControllerServiceReferences?: { [key: string]: ExternalControllerServiceReference };
+    parameterContexts?: { [key: string]: any };
+    parameterProviders?: { [key: string]: any };
 }
 export interface CopiedContentInfo {
     copyId: string;

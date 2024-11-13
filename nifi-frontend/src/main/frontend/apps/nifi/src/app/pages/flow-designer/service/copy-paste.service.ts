@@ -211,7 +211,9 @@ export class CopyPasteService {
             processGroups: arrayOrUndefined(copyResponse.processGroups),
             processors: arrayOrUndefined(copyResponse.processors),
             remoteProcessGroups: arrayOrUndefined(copyResponse.remoteProcessGroups),
-            externalControllerServiceReferences: copyResponse.externalControllerServiceReferences
+            externalControllerServiceReferences: copyResponse.externalControllerServiceReferences,
+            parameterContexts: copyResponse.parameterContexts,
+            parameterProviders: copyResponse.parameterProviders
         } as CopyResponseEntity;
     }
 
