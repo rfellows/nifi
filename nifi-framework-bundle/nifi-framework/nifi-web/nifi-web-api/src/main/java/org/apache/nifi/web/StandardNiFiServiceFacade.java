@@ -5278,10 +5278,20 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
             externalControllerServices.put(vcs.getIdentifier(), externalControllerService);
         });
 
+        final Map<String, VersionedParameterContext> parameterContexts = new HashMap<>();
+        final Map<String, ParameterProviderReference> parameterProviderReferences = new HashMap<>();
+
+        // Create a complete (include descendant flows) map of parameter contexts
+        processGroup.getProcessGroups().stream()
+                .filter(pg -> copyRequest.getProcessGroups().contains(pg.getIdentifier()))
+                .forEach(pg -> parameterContexts.putAll(mapper.mapParameterContexts(pg, true, parameterProviderReferences)));
+
         // build the copy response payload
         final CopyResponseEntity copyResponseEntity = new CopyResponseEntity();
         copyResponseEntity.setId(UUID.randomUUID().toString());
         copyResponseEntity.setExternalControllerServiceReferences(externalControllerServices);
+        copyResponseEntity.setParameterContexts(parameterContexts);
+        copyResponseEntity.setParameterProviders(parameterProviderReferences);
         copyResponseEntity.setProcessGroups(versionedProcessGroups);
         copyResponseEntity.setRemoteProcessGroups(versionedRemoteProcessGroups);
         copyResponseEntity.setProcessors(versionedProcessors);

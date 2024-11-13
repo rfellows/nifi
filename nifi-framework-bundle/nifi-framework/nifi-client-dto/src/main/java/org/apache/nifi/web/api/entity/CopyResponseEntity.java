@@ -19,9 +19,11 @@ package org.apache.nifi.web.api.entity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.xml.bind.annotation.XmlType;
 import org.apache.nifi.flow.ExternalControllerServiceReference;
+import org.apache.nifi.flow.ParameterProviderReference;
 import org.apache.nifi.flow.VersionedConnection;
 import org.apache.nifi.flow.VersionedFunnel;
 import org.apache.nifi.flow.VersionedLabel;
+import org.apache.nifi.flow.VersionedParameterContext;
 import org.apache.nifi.flow.VersionedPort;
 import org.apache.nifi.flow.VersionedProcessGroup;
 import org.apache.nifi.flow.VersionedProcessor;
@@ -40,6 +42,8 @@ public class CopyResponseEntity extends Entity {
     private String id;
 
     private Map<String, ExternalControllerServiceReference> externalControllerServiceReferences;
+    private Map<String, VersionedParameterContext> parameterContexts;
+    private Map<String, ParameterProviderReference> parameterProviders;
 
     private Set<VersionedProcessGroup> processGroups = new HashSet<>();
     private Set<VersionedRemoteProcessGroup> remoteProcessGroups = new HashSet<>();
@@ -78,6 +82,36 @@ public class CopyResponseEntity extends Entity {
 
     public void setExternalControllerServiceReferences(Map<String, ExternalControllerServiceReference> externalControllerServiceReferences) {
         this.externalControllerServiceReferences = externalControllerServiceReferences;
+    }
+
+    /**
+     * The referenced parameter contexts.
+     *
+     * @return The referenced parameter contexts
+     */
+    @Schema(description = "The referenced parameter contexts."
+    )
+    public Map<String, VersionedParameterContext> getParameterContexts() {
+        return parameterContexts;
+    }
+
+    public void setParameterContexts(Map<String, VersionedParameterContext> parameterContexts) {
+        this.parameterContexts = parameterContexts;
+    }
+
+    /**
+     * The referenced parameter providers.
+     *
+     * @return The referenced parameter providers
+     */
+    @Schema(description = "The referenced parameter providers."
+    )
+    public Map<String, ParameterProviderReference> getParameterProviders() {
+        return parameterProviders;
+    }
+
+    public void setParameterProviders(Map<String, ParameterProviderReference> parameterProviders) {
+        this.parameterProviders = parameterProviders;
     }
 
     /**

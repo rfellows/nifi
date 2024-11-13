@@ -3028,6 +3028,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                             .setProcessGroups(requestVersionedProcessGroup.getProcessGroups())
                             .setRemoteProcessGroups(requestVersionedProcessGroup.getRemoteProcessGroups())
                             .setConnections(requestVersionedProcessGroup.getConnections())
+                            .setParameterContexts(requestCopyResponseEntity.getParameterContexts())
+                            .setParameterProviders(requestCopyResponseEntity.getParameterProviders())
                             .build();
 
                     final PasteResponseEntity pasteResponseEntity = serviceFacade.pasteComponents(revision, groupId, additions, getIdGenerationSeed().orElse(null));

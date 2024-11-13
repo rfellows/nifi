@@ -17,16 +17,19 @@
 
 package org.apache.nifi.groups;
 
+import org.apache.nifi.flow.ParameterProviderReference;
 import org.apache.nifi.flow.VersionedConnection;
 import org.apache.nifi.flow.VersionedControllerService;
 import org.apache.nifi.flow.VersionedFunnel;
 import org.apache.nifi.flow.VersionedLabel;
+import org.apache.nifi.flow.VersionedParameterContext;
 import org.apache.nifi.flow.VersionedPort;
 import org.apache.nifi.flow.VersionedProcessGroup;
 import org.apache.nifi.flow.VersionedProcessor;
 import org.apache.nifi.flow.VersionedRemoteProcessGroup;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 
 public class VersionedComponentAdditions {
@@ -40,6 +43,8 @@ public class VersionedComponentAdditions {
     private Set<VersionedLabel> labels;
     private Set<VersionedFunnel> funnels;
     private Set<VersionedControllerService> controllerServices;
+    private Map<String, VersionedParameterContext> parameterContexts;
+    private Map<String, ParameterProviderReference> parameterProviders;
 
     private VersionedComponentAdditions(final Builder builder) {
         this.processGroups = builder.processGroups == null ? Collections.emptySet() : Collections.unmodifiableSet(builder.processGroups);
@@ -51,6 +56,8 @@ public class VersionedComponentAdditions {
         this.labels = builder.labels == null ? Collections.emptySet() : Collections.unmodifiableSet(builder.labels);
         this.funnels = builder.funnels == null ? Collections.emptySet() : Collections.unmodifiableSet(builder.funnels);
         this.controllerServices = builder.controllerServices == null ? Collections.emptySet() : Collections.unmodifiableSet(builder.controllerServices);
+        this.parameterContexts = builder.parameterContexts == null ? Collections.emptyMap() : Collections.unmodifiableMap(builder.parameterContexts);
+        this.parameterProviders = builder.parameterProviders == null ? Collections.emptyMap() : Collections.unmodifiableMap(builder.parameterProviders);
     }
 
     public Set<VersionedProcessGroup> getProcessGroups() {
@@ -89,6 +96,14 @@ public class VersionedComponentAdditions {
         return controllerServices;
     }
 
+    public Map<String, VersionedParameterContext> getParameterContexts() {
+        return parameterContexts;
+    }
+
+    public Map<String, ParameterProviderReference> getParameterProviders() {
+        return parameterProviders;
+    }
+
     public static class Builder {
         private Set<VersionedProcessGroup> processGroups;
         private Set<VersionedRemoteProcessGroup> remoteProcessGroups;
@@ -99,6 +114,8 @@ public class VersionedComponentAdditions {
         private Set<VersionedLabel> labels;
         private Set<VersionedFunnel> funnels;
         private Set<VersionedControllerService> controllerServices;
+        private Map<String, VersionedParameterContext> parameterContexts;
+        private Map<String, ParameterProviderReference> parameterProviders;
 
         public Builder setProcessGroups(Set<VersionedProcessGroup> processGroups) {
             this.processGroups = processGroups;
@@ -142,6 +159,16 @@ public class VersionedComponentAdditions {
 
         public Builder setControllerServices(Set<VersionedControllerService> controllerServices) {
             this.controllerServices = controllerServices;
+            return this;
+        }
+
+        public Builder setParameterContexts(Map<String, VersionedParameterContext> parameterContexts) {
+            this.parameterContexts = parameterContexts;
+            return this;
+        }
+
+        public Builder setParameterProviders(Map<String, ParameterProviderReference> parameterProviders) {
+            this.parameterProviders = parameterProviders;
             return this;
         }
 
