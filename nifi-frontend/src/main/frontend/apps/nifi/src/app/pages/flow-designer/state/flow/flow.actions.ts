@@ -22,9 +22,6 @@ import {
     ChangeVersionDialogRequest,
     ComponentEntity,
     ConfirmStopVersionControlRequest,
-    CopyRequest,
-    CopyResponseContext,
-    CopyResponseEntity,
     CreateComponentRequest,
     CreateComponentResponse,
     CreateConnection,
@@ -114,6 +111,7 @@ import {
 import { StatusHistoryRequest } from '../../../../state/status-history';
 import { FetchComponentVersionsRequest } from '../../../../state/shared';
 import { ErrorContext } from '../../../../state/error';
+import { CopyRequest, CopyResponseContext, CopyResponseEntity } from '../../../../state/copy';
 
 const CANVAS_PREFIX = '[Canvas]';
 

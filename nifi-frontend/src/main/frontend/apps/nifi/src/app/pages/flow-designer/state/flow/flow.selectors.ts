@@ -43,8 +43,6 @@ export const selectCurrentProcessGroupRevision = createSelector(
 
 export const selectRefreshRpgDetails = createSelector(selectFlowState, (state: FlowState) => state.refreshRpgDetails);
 
-export const selectCopiedContent = createSelector(selectFlowState, (state: FlowState) => state.copiedContent);
-
 export const selectCurrentParameterContext = createSelector(
     selectFlowState,
     (state: FlowState) => state.flow.processGroupFlow.parameterContext

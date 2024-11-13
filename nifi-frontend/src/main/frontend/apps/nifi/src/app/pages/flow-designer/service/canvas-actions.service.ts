@@ -39,8 +39,6 @@ import {
 } from '../state/flow/flow.actions';
 import {
     ChangeColorRequest,
-    CopyRequest,
-    CopyRequestEntity,
     DeleteComponentRequest,
     DisableComponentRequest,
     EnableComponentRequest,
@@ -56,6 +54,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { CanvasView } from './canvas-view.service';
 import { ComponentType } from 'libs/shared/src';
 import { Client } from '../../../service/client.service';
+import { CopyRequest, CopyRequestEntity } from '../../../state/copy';
 
 export type CanvasConditionFunction = (selection: d3.Selection<any, any, any, any>) => boolean;
 export type CanvasActionFunction = (selection: d3.Selection<any, any, any, any>, extraArgs?: any) => void;

@@ -19,18 +19,12 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import {
-    CopyRequestContext,
-    CopyResponseEntity,
-    Dimensions,
-    PasteRequest,
-    PasteRequestContext,
-    PasteRequestEntity
-} from '../state/flow';
+import { Dimensions, PasteRequest, PasteRequestContext, PasteRequestEntity } from '../state/flow';
 import { Observable } from 'rxjs';
 import { ClusterConnectionService } from '../../../service/cluster-connection.service';
 import { Position } from '../state/shared';
 import { CanvasView } from './canvas-view.service';
+import { CopyRequestContext, CopyResponseEntity } from '../../../state/copy';
 
 @Injectable({
     providedIn: 'root'

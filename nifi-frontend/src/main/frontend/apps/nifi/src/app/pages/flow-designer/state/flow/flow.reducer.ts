@@ -19,7 +19,6 @@ import { createReducer, on } from '@ngrx/store';
 import {
     changeVersionComplete,
     changeVersionSuccess,
-    copySuccess,
     createComponentComplete,
     createComponentSuccess,
     createConnection,
@@ -161,7 +160,6 @@ export const initialState: FlowState = {
         parameterProviderBulletins: [],
         reportingTaskBulletins: []
     },
-    copiedContent: null,
     dragging: false,
     saving: false,
     versionSaving: false,
@@ -480,10 +478,6 @@ export const flowReducer = createReducer(
             });
         });
     }),
-    on(copySuccess, (state, { response }) => ({
-        ...state,
-        copiedContent: response
-    })),
     on(pasteSuccess, (state, { response }) => {
         return produce(state, (draftState) => {
             const labels: any[] | null = getComponentCollection(draftState, ComponentType.Label);
@@ -522,15 +516,6 @@ export const flowReducer = createReducer(
                 connections.push(...response.flow.connections);
             }
             draftState.flow.revision = response.revision;
-
-            // update the paste count of the copied content if it was pasted
-            if (
-                draftState.copiedContent &&
-                draftState.copiedContent.copyResponse.id === response.pasteRequest.copyResponse.id &&
-                draftState.copiedContent.processGroupId === draftState.flow.processGroupFlow.id
-            ) {
-                draftState.copiedContent.pasteCount++;
-            }
         });
     }),
     on(setDragging, (state, { dragging }) => ({

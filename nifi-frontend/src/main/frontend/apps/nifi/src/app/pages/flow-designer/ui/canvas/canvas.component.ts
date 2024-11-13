@@ -37,7 +37,7 @@ import { CanvasView } from '../../service/canvas-view.service';
 import { INITIAL_SCALE, INITIAL_TRANSLATE } from '../../state/transform/transform.reducer';
 import { selectTransform } from '../../state/transform/transform.selectors';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { CopyResponseEntity, SelectedComponent } from '../../state/flow';
+import { SelectedComponent } from '../../state/flow';
 import {
     selectAllowTransition,
     selectBulkSelectedComponentIds,
@@ -71,6 +71,7 @@ import { ComponentType, isDefinedAndNotNull, selectUrl, Storage } from '@nifi/sh
 import { CanvasUtils } from '../../service/canvas-utils.service';
 import { CanvasActionsService } from '../../service/canvas-actions.service';
 import { MatDialog } from '@angular/material/dialog';
+import { CopyResponseEntity } from '../../../../state/copy';
 
 @Component({
     selector: 'fd-canvas',

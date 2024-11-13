@@ -32,6 +32,7 @@ import {
 import { HttpErrorResponse } from '@angular/common/http';
 import { BackNavigation } from '../../../../state/navigation';
 import { ComponentType, SelectOption } from 'libs/shared/src';
+import { CopyResponseEntity } from '../../../../state/copy';
 
 export const flowFeatureKey = 'flowState';
 
@@ -454,38 +455,6 @@ export interface MoveComponentsRequest {
 }
 
 ///////////////////////////////////////////////////////////
-export interface CopyRequest {
-    copyRequestEntity: CopyRequestEntity;
-}
-export interface CopyRequestContext extends CopyRequest {
-    processGroupId: string;
-}
-export interface CopyResponseContext {
-    copyResponse: CopyResponseEntity;
-    processGroupId: string;
-    pasteCount: number;
-}
-export interface CopyRequestEntity {
-    processGroups?: string[];
-    remoteProcessGroups?: string[];
-    processors?: string[];
-    inputPorts?: string[];
-    outputPorts?: string[];
-    connections?: string[];
-    labels?: string[];
-    funnels?: string[];
-}
-export interface CopyResponseEntity {
-    id: string;
-    processGroups?: any[];
-    remoteProcessGroups?: any[];
-    processors?: any[];
-    inputPorts?: any[];
-    outputPorts?: any[];
-    connections?: any[];
-    labels?: any[];
-    funnels?: any[];
-}
 export interface PasteRequest {
     copyResponse: CopyResponseEntity;
     fitToScreen?: boolean;
@@ -672,7 +641,6 @@ export interface FlowState {
     flowStatus: ControllerStatusEntity;
     refreshRpgDetails: RefreshRemoteProcessGroupPollingDetailsRequest | null;
     controllerBulletins: ControllerBulletinsEntity;
-    copiedContent: CopyResponseContext | null;
     dragging: boolean;
     transitionRequired: boolean;
     skipTransform: boolean;

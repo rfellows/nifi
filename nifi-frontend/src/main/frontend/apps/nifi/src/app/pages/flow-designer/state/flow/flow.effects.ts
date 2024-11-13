@@ -22,6 +22,7 @@ import { concatLatestFrom } from '@ngrx/operators';
 import * as FlowActions from './flow.actions';
 import * as StatusHistoryActions from '../../../../state/status-history/status-history.actions';
 import * as ErrorActions from '../../../../state/error/error.actions';
+import * as CopyActions from '../../../../state/copy/copy.actions';
 import {
     asyncScheduler,
     catchError,
@@ -41,14 +42,14 @@ import {
     throttleTime
 } from 'rxjs';
 import {
-    CopyRequestContext, CopyResponseContext,
     CreateConnectionDialogRequest,
     CreateProcessGroupDialogRequest,
     DeleteComponentResponse,
     GroupComponentsDialogRequest,
     ImportFromRegistryDialogRequest,
     LoadProcessGroupResponse,
-    MoveComponentRequest, PasteRequest,
+    MoveComponentRequest,
+    PasteRequest,
     PasteRequestContext,
     PasteRequestEntity,
     SaveVersionDialogRequest,
@@ -68,7 +69,7 @@ import {
 import { Action, Store } from '@ngrx/store';
 import {
     selectAnySelectedComponentIds,
-    selectChangeVersionRequest, selectCopiedContent,
+    selectChangeVersionRequest,
     selectCurrentParameterContext,
     selectCurrentProcessGroupId,
     selectCurrentProcessGroupRevision,
@@ -160,6 +161,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DocumentVisibility } from '../../../../state/document-visibility';
 import { ErrorContextKey } from '../../../../state/error';
 import { CopyPasteService } from '../../service/copy-paste.service';
+import { selectCopiedContent } from '../../../../state/copy/copy.selectors';
+import { CopyRequestContext, CopyResponseContext } from '../../../../state/copy';
 
 @Injectable()
 export class FlowEffects {
@@ -2257,17 +2260,18 @@ export class FlowEffects {
         )
     );
 
-    copySuccess$ = createEffect(
-        () =>
-            this.actions$.pipe(
-                ofType(FlowActions.copySuccess),
-                map((action) => action.response),
-                tap(() => {
-                    // TODO: toast notification indicating copy was successful???
-                    // TODO: may or may not need to store the copy response in the store.
-                })
-            ),
-        { dispatch: false }
+    copySuccess$ = createEffect(() =>
+        this.actions$.pipe(
+            ofType(FlowActions.copySuccess),
+            map((action) => action.response),
+            switchMap((response) => {
+                return of(
+                    CopyActions.setCopiedContent({
+                        content: response
+                    })
+                );
+            })
+        )
     );
 
     paste$ = createEffect(() =>
@@ -2330,7 +2334,8 @@ export class FlowEffects {
         this.actions$.pipe(
             ofType(FlowActions.pasteSuccess),
             map((action) => action.response),
-            switchMap((response) => {
+            concatLatestFrom(() => this.store.select(selectCurrentProcessGroupId)),
+            switchMap(([response, currentProcessGroupId]) => {
                 this.canvasView.updateCanvasVisibility();
                 this.birdseyeView.refresh();
 
@@ -2403,6 +2408,15 @@ export class FlowEffects {
                 if (response.pasteRequest.fitToScreen && response.pasteRequest.bbox) {
                     this.canvasView.centerBoundingBox(response.pasteRequest.bbox);
                 }
+                this.store.dispatch(
+                    CopyActions.contentPasted({
+                        pasted: {
+                            copyId: response.pasteRequest.copyResponse.id,
+                            processGroupId: currentProcessGroupId
+                        }
+                    })
+                );
+
                 return of(
                     FlowActions.selectComponents({
                         request: {
