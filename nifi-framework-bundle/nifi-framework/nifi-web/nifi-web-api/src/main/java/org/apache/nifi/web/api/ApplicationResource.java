@@ -206,11 +206,20 @@ public abstract class ApplicationResource {
     }
 
     protected String generateUuid() {
+        return generateUuid(null);
+    }
+
+    protected String generateUuid(final String currentId) {
         final Optional<String> seed = getIdGenerationSeed();
         UUID uuid;
         if (seed.isPresent()) {
             try {
-                UUID seedId = UUID.fromString(seed.get());
+                final UUID seedId;
+                if (currentId == null) {
+                    seedId = UUID.fromString(seed.get());
+                } else {
+                    seedId = UUID.nameUUIDFromBytes((currentId + seed.get()).getBytes(StandardCharsets.UTF_8));
+                }
                 uuid = new UUID(seedId.getMostSignificantBits(), seed.get().hashCode());
             } catch (Exception e) {
                 logger.warn("Provided 'seed' does not represent UUID. Will not be able to extract most significant bits for ID generation.");

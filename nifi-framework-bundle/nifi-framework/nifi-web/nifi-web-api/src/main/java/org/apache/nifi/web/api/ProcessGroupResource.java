@@ -79,6 +79,7 @@ import org.apache.nifi.flow.VersionedComponent;
 import org.apache.nifi.flow.VersionedFlowCoordinates;
 import org.apache.nifi.flow.VersionedParameterContext;
 import org.apache.nifi.flow.VersionedProcessGroup;
+import org.apache.nifi.flow.VersionedPropertyDescriptor;
 import org.apache.nifi.groups.VersionedComponentAdditions;
 import org.apache.nifi.parameter.ParameterContext;
 import org.apache.nifi.registry.client.NiFiRegistryException;
@@ -3061,67 +3062,87 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
     }
 
     private void mapVersionedIds(final VersionedProcessGroup group, final Map<String, String> idMapping, final Map<String, String> serviceIdMapping) {
-        final String newGroupId = generateUuid();
+        final String newGroupId = generateUuid(group.getIdentifier());
         idMapping.put(group.getIdentifier(), newGroupId);
         group.setIdentifier(newGroupId);
 
         group.getControllerServices().forEach(cs -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(cs.getIdentifier());
             idMapping.put(cs.getIdentifier(), newId);
             serviceIdMapping.put(cs.getIdentifier(), newId);
             cs.setIdentifier(newId);
         });
         group.getControllerServices().forEach(cs -> {
             cs.getProperties().entrySet().stream()
-                    .filter(propertyEntry -> serviceIdMapping.containsKey(propertyEntry.getValue()))
+                    .filter(propertyEntry -> {
+                        final Map<String, VersionedPropertyDescriptor> propertyDescriptors = cs.getPropertyDescriptors();
+                        if (propertyDescriptors != null) {
+                            final VersionedPropertyDescriptor propertyDescriptor = propertyDescriptors.get(propertyEntry.getKey());
+                            if (propertyDescriptor != null && propertyDescriptor.getIdentifiesControllerService()) {
+                                return serviceIdMapping.containsKey(propertyEntry.getValue());
+                            }
+                        }
+
+                        return false;
+                    })
                     .findFirst()
                     .ifPresent(serviceEntry -> serviceEntry.setValue(serviceIdMapping.get(serviceEntry.getValue())));
         });
         group.getProcessors().forEach(p -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(p.getIdentifier());
             idMapping.put(p.getIdentifier(), newId);
             p.setIdentifier(newId);
 
             p.getProperties().entrySet().stream()
-                    .filter(propertyEntry -> serviceIdMapping.containsKey(propertyEntry.getValue()))
+                    .filter(propertyEntry -> {
+                        final Map<String, VersionedPropertyDescriptor> propertyDescriptors = p.getPropertyDescriptors();
+                        if (propertyDescriptors != null) {
+                            final VersionedPropertyDescriptor propertyDescriptor = propertyDescriptors.get(propertyEntry.getKey());
+                            if (propertyDescriptor != null && propertyDescriptor.getIdentifiesControllerService()) {
+                                return serviceIdMapping.containsKey(propertyEntry.getValue());
+                            }
+                        }
+
+                        return false;
+                    })
                     .findFirst()
                     .ifPresent(serviceEntry -> serviceEntry.setValue(serviceIdMapping.get(serviceEntry.getValue())));
         });
         group.getInputPorts().forEach(ip -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(ip.getIdentifier());
             idMapping.put(ip.getIdentifier(), newId);
             ip.setIdentifier(newId);
         });
         group.getOutputPorts().forEach(op -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(op.getIdentifier());
             idMapping.put(op.getIdentifier(), newId);
             op.setIdentifier(newId);
         });
         group.getFunnels().forEach(f -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(f.getIdentifier());
             idMapping.put(f.getIdentifier(), newId);
             f.setIdentifier(newId);
         });
         group.getLabels().forEach(l -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(l.getIdentifier());
             idMapping.put(l.getIdentifier(), newId);
             l.setIdentifier(newId);
         });
         group.getRemoteProcessGroups().forEach(rpg -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(rpg.getIdentifier());
             idMapping.put(rpg.getIdentifier(), newId);
             rpg.setIdentifier(newId);
 
             if (rpg.getInputPorts() != null) {
                 rpg.getInputPorts().forEach(rip -> {
-                    final String newRipId = generateUuid();
+                    final String newRipId = generateUuid(rip.getIdentifier());
                     idMapping.put(rip.getIdentifier(), newRipId);
                     rip.setIdentifier(newRipId);
                 });
             }
             if (rpg.getOutputPorts() != null) {
                 rpg.getOutputPorts().forEach(rop -> {
-                    final String newRopId = generateUuid();
+                    final String newRopId = generateUuid(rop.getIdentifier());
                     idMapping.put(rop.getIdentifier(), newRopId);
                     rop.setIdentifier(newRopId);
                 });
@@ -3131,7 +3152,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             mapVersionedIds(cpg, idMapping, serviceIdMapping);
         });
         group.getConnections().forEach(c -> {
-            final String newId = generateUuid();
+            final String newId = generateUuid(c.getIdentifier());
             idMapping.put(c.getIdentifier(), newId);
             c.setIdentifier(newId);
 
