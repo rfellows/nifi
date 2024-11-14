@@ -5238,7 +5238,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 .mapAssetReferences(false)
                 .build();
 
-        final NiFiRegistryFlowMapper mapper = new NiFiRegistryFlowMapper(controllerFacade.getExtensionManager(), mappingOptions);
+        final NiFiRegistryFlowMapper mapper = makeNiFiRegistryFlowMapper(controllerFacade.getExtensionManager(), mappingOptions);
         final InstantiatedVersionedProcessGroup nonVersionedProcessGroup =
                 mapper.mapNonVersionedProcessGroup(processGroup, controllerFacade.getControllerServiceProvider());
 
@@ -7167,6 +7167,17 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
      */
     protected NiFiRegistryFlowMapper makeNiFiRegistryFlowMapper(final ExtensionManager extensionManager) {
         return new NiFiRegistryFlowMapper(extensionManager);
+    }
+
+    /**
+     * Create a new flow mapper using a mockable method for testing
+     *
+     * @param extensionManager  the extension manager to create the flow mapper with
+     * @param options  the flow mapping options
+     * @return a new NiFiRegistryFlowMapper instance
+     */
+    protected NiFiRegistryFlowMapper makeNiFiRegistryFlowMapper(final ExtensionManager extensionManager, final FlowMappingOptions options) {
+        return new NiFiRegistryFlowMapper(extensionManager, options);
     }
 
     @Autowired
