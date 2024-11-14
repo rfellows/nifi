@@ -197,6 +197,7 @@ import org.apache.nifi.registry.flow.diff.FlowDifference;
 import org.apache.nifi.registry.flow.diff.StandardComparableDataFlow;
 import org.apache.nifi.registry.flow.diff.StandardFlowComparator;
 import org.apache.nifi.registry.flow.diff.StaticDifferenceDescriptor;
+import org.apache.nifi.registry.flow.mapping.ComponentIdLookup;
 import org.apache.nifi.registry.flow.mapping.FlowMappingOptions;
 import org.apache.nifi.registry.flow.mapping.InstantiatedVersionedComponent;
 import org.apache.nifi.registry.flow.mapping.InstantiatedVersionedPort;
@@ -5229,7 +5230,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         final FlowMappingOptions mappingOptions = new FlowMappingOptions.Builder()
                 .sensitiveValueEncryptor(null)
                 .stateLookup(VersionedComponentStateLookup.ENABLED_OR_DISABLED)
-                .componentIdLookup((currentVersionedId, componentId, versionedUuidGenerator) -> UUID.randomUUID().toString())
+                .componentIdLookup(ComponentIdLookup.VERSIONED_OR_GENERATE)
                 .mapPropertyDescriptors(true)
                 .mapSensitiveConfiguration(false)
                 .mapInstanceIdentifiers(true)

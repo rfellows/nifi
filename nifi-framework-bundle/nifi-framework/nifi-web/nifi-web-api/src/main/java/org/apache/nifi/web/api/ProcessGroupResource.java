@@ -3062,10 +3062,6 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
     }
 
     private void mapVersionedIds(final VersionedProcessGroup group, final Map<String, String> idMapping, final Map<String, String> serviceIdMapping) {
-        final String newGroupId = generateUuid(group.getIdentifier());
-        idMapping.put(group.getIdentifier(), newGroupId);
-        group.setIdentifier(newGroupId);
-
         group.getControllerServices().forEach(cs -> {
             final String newId = generateUuid(cs.getIdentifier());
             idMapping.put(cs.getIdentifier(), newId);
@@ -3149,7 +3145,13 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             }
         });
         group.getProcessGroups().forEach(cpg -> {
-            mapVersionedIds(cpg, idMapping, serviceIdMapping);
+            final String newGroupId = generateUuid(cpg.getIdentifier());
+            idMapping.put(cpg.getIdentifier(), newGroupId);
+            cpg.setIdentifier(newGroupId);
+
+            if (cpg.getVersionedFlowCoordinates() == null) {
+                mapVersionedIds(cpg, idMapping, serviceIdMapping);
+            }
         });
         group.getConnections().forEach(c -> {
             final String newId = generateUuid(c.getIdentifier());
@@ -3158,18 +3160,36 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
 
             if (c.getSource() != null) {
                 final ConnectableComponent source = c.getSource();
+
+                // map the source id
                 final String sourceId = source.getId();
                 final String newSourceId = idMapping.get(sourceId);
                 if (newSourceId != null) {
                     source.setId(newSourceId);
                 }
+
+                // map the source group id
+                final String sourceGroupId = source.getGroupId();
+                final String newSourceGroupId = idMapping.get(sourceGroupId);
+                if (newSourceGroupId != null) {
+                    source.setGroupId(newSourceGroupId);
+                }
             }
             if (c.getDestination() != null) {
                 final ConnectableComponent destination = c.getDestination();
+
+                // map the destination id
                 final String destinationId = destination.getId();
                 final String newDestinationId = idMapping.get(destinationId);
                 if (newDestinationId != null) {
                     destination.setId(newDestinationId);
+                }
+
+                // map the destination group id
+                final String destinationGroupId = destination.getGroupId();
+                final String newDestinationGroupId = idMapping.get(destinationGroupId);
+                if (newDestinationGroupId != null) {
+                    destination.setGroupId(newDestinationGroupId);
                 }
             }
         });
