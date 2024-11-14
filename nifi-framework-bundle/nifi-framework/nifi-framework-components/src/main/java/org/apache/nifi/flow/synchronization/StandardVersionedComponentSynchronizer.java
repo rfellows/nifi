@@ -474,21 +474,24 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
                 flowState = remoteCoordinates.getLatest() ? VersionedFlowState.UP_TO_DATE : VersionedFlowState.STALE;
             }
 
-            final VersionControlInformation vci = new StandardVersionControlInformation.Builder()
-                .registryId(registryId)
-                .registryName(registryName)
-                .branch(branch)
-                .bucketId(bucketId)
-                .bucketName(bucketId)
-                .flowId(flowId)
-                .storageLocation(storageLocation)
-                .flowName(flowId)
-                .version(version)
-                .flowSnapshot(syncOptions.isUpdateGroupVersionControlSnapshot() ? proposed : null)
-                .status(new StandardVersionedFlowStatus(flowState, flowState.getDescription()))
-                .build();
+            // only attempt to set the version control information when an applicable registry client could be discovered
+            if (registryId != null) {
+                final VersionControlInformation vci = new StandardVersionControlInformation.Builder()
+                    .registryId(registryId)
+                    .registryName(registryName)
+                    .branch(branch)
+                    .bucketId(bucketId)
+                    .bucketName(bucketId)
+                    .flowId(flowId)
+                    .storageLocation(storageLocation)
+                    .flowName(flowId)
+                    .version(version)
+                    .flowSnapshot(syncOptions.isUpdateGroupVersionControlSnapshot() ? proposed : null)
+                    .status(new StandardVersionedFlowStatus(flowState, flowState.getDescription()))
+                    .build();
 
-            group.setVersionControlInformation(vci, Collections.emptyMap());
+                group.setVersionControlInformation(vci, Collections.emptyMap());
+            }
         }
 
         // In order to properly update all of the components, we have to follow a specific order of operations, in order to ensure that

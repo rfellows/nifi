@@ -5239,42 +5239,42 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 .build();
 
         final NiFiRegistryFlowMapper mapper = makeNiFiRegistryFlowMapper(controllerFacade.getExtensionManager(), mappingOptions);
-        final InstantiatedVersionedProcessGroup nonVersionedProcessGroup =
-                mapper.mapNonVersionedProcessGroup(processGroup, controllerFacade.getControllerServiceProvider());
+        final InstantiatedVersionedProcessGroup versionedProcessGroup =
+                mapper.mapProcessGroup(processGroup, controllerFacade.getControllerServiceProvider(), controllerFacade.getFlowManager(), true);
 
-        final Set<VersionedProcessGroup> versionedProcessGroups = nonVersionedProcessGroup.getProcessGroups().stream()
+        final Set<VersionedProcessGroup> versionedProcessGroups = versionedProcessGroup.getProcessGroups().stream()
                 .filter(pg -> copyRequest.getProcessGroups().contains(pg.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedRemoteProcessGroup> versionedRemoteProcessGroups = nonVersionedProcessGroup.getRemoteProcessGroups().stream()
+        final Set<VersionedRemoteProcessGroup> versionedRemoteProcessGroups = versionedProcessGroup.getRemoteProcessGroups().stream()
                 .filter(rpg -> copyRequest.getRemoteProcessGroups().contains(rpg.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedProcessor> versionedProcessors = nonVersionedProcessGroup.getProcessors().stream()
+        final Set<VersionedProcessor> versionedProcessors = versionedProcessGroup.getProcessors().stream()
                 .filter(p -> copyRequest.getProcessors().contains(p.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedPort> versionedInputPorts = nonVersionedProcessGroup.getInputPorts().stream()
+        final Set<VersionedPort> versionedInputPorts = versionedProcessGroup.getInputPorts().stream()
                 .filter(ip -> copyRequest.getInputPorts().contains(ip.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedPort> versionedOutputPorts = nonVersionedProcessGroup.getOutputPorts().stream()
+        final Set<VersionedPort> versionedOutputPorts = versionedProcessGroup.getOutputPorts().stream()
                 .filter(op -> copyRequest.getOutputPorts().contains(op.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedFunnel> versionedFunnels = nonVersionedProcessGroup.getFunnels().stream()
+        final Set<VersionedFunnel> versionedFunnels = versionedProcessGroup.getFunnels().stream()
                 .filter(f -> copyRequest.getFunnels().contains(f.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedLabel> versionedLabels = nonVersionedProcessGroup.getLabels().stream()
+        final Set<VersionedLabel> versionedLabels = versionedProcessGroup.getLabels().stream()
                 .filter(l -> copyRequest.getLabels().contains(l.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
-        final Set<VersionedConnection> versionedConnections = nonVersionedProcessGroup.getConnections().stream()
+        final Set<VersionedConnection> versionedConnections = versionedProcessGroup.getConnections().stream()
                 .filter(c -> copyRequest.getConnections().contains(c.getInstanceIdentifier()))
                 .collect(Collectors.toSet());
 
         // include any top level services as external as the top level isn't included
         final Map<String, ExternalControllerServiceReference> externalControllerServices =
-                nonVersionedProcessGroup.getExternalControllerServiceReferences().entrySet().stream()
+                versionedProcessGroup.getExternalControllerServiceReferences().entrySet().stream()
                         .filter(e -> isServiceReferenced(e.getKey(), versionedProcessors, Collections.emptySet(), versionedProcessGroups))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         // move any service at the current level into external services
-        nonVersionedProcessGroup.getControllerServices().stream()
+        versionedProcessGroup.getControllerServices().stream()
                 .filter(cs -> isServiceReferenced(cs.getIdentifier(), versionedProcessors, Collections.emptySet(), versionedProcessGroups))
                 .forEach(vcs -> {
             final ExternalControllerServiceReference externalControllerService = new ExternalControllerServiceReference();
