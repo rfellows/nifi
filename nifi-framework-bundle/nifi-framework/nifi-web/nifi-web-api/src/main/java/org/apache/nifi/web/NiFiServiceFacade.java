@@ -2788,8 +2788,9 @@ public interface NiFiServiceFacade {
      *
      * @param versionedFlowSnapshot the flow snapshot
      * @param user the NiFi user on whose behalf the request is happening; this user is used for validation so that only the Parameter Providers that the user has READ permissions to are included
+     * @return any unresolved parameter provider ids
      */
-    void resolveParameterProviders(RegisteredFlowSnapshot versionedFlowSnapshot, NiFiUser user);
+    Set<String> resolveParameterProviders(RegisteredFlowSnapshot versionedFlowSnapshot, NiFiUser user);
 
     /**
      * @param type the component type

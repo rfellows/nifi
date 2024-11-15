@@ -22,6 +22,9 @@ import org.apache.nifi.components.RequiredPermission;
 import org.apache.nifi.parameter.ParameterContext;
 import org.apache.nifi.web.api.dto.BundleDTO;
 
+import java.util.Set;
+import java.util.function.Predicate;
+
 public interface AuthorizableLookup {
 
     /**
@@ -205,6 +208,13 @@ public interface AuthorizableLookup {
      * @return authorizable
      */
     ComponentAuthorizable getFlowAnalysisRule(String id);
+
+    /**
+     * Get the authorizables for all parameter providers that meet the specified predicate. Non null
+     *
+     * @return all encapsulated parameter providers
+     */
+    Set<ComponentAuthorizable> getParameterProviders(Predicate<org.apache.nifi.authorization.resource.ComponentAuthorizable> filter);
 
     /**
      * Get the authorizable ParameterProvider.

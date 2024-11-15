@@ -319,7 +319,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             // ensure access to process groups (nested), encapsulated controller services and referenced parameter contexts
             final ProcessGroupAuthorizable groupAuthorizable = lookup.getProcessGroup(groupId);
             authorizeProcessGroup(groupAuthorizable, authorizer, lookup, RequestAction.READ, true,
-                    false, false, true);
+                    false, false, false, true);
         });
 
         // get the versioned flow
@@ -389,7 +389,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
             });
             copyRequestEntity.getProcessGroups().forEach(id -> {
                 final ProcessGroupAuthorizable processGroupAuthorizable = lookup.getProcessGroup(id);
-                authorizeProcessGroup(processGroupAuthorizable, authorizer, lookup, RequestAction.READ, true, true, false, false);
+                authorizeProcessGroup(processGroupAuthorizable, authorizer, lookup, RequestAction.READ, true, true, false, false, true);
             });
             copyRequestEntity.getRemoteProcessGroups().forEach(id -> {
                 final Authorizable authorizable = lookup.getRemoteProcessGroup(id);
@@ -448,7 +448,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         // authorize access
         serviceFacade.authorizeAccess(lookup -> {
             final ProcessGroupAuthorizable groupAuthorizable = lookup.getProcessGroup(groupId);
-            authorizeProcessGroup(groupAuthorizable, authorizer, lookup, RequestAction.READ, false, false, false, false);
+            authorizeProcessGroup(groupAuthorizable, authorizer, lookup, RequestAction.READ, false, false, false, false, false);
         });
 
         final FlowComparisonEntity entity = serviceFacade.getLocalModifications(groupId);
@@ -850,10 +850,10 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
     private void authorizeHandleDropAllFlowFilesRequest(String processGroupId, AuthorizableLookup lookup) {
         final ProcessGroupAuthorizable processGroup = lookup.getProcessGroup(processGroupId);
 
-        authorizeProcessGroup(processGroup, authorizer, lookup, RequestAction.READ, false, false, false, false);
+        authorizeProcessGroup(processGroup, authorizer, lookup, RequestAction.READ, false, false, false, false, false);
 
         processGroup.getEncapsulatedProcessGroups()
-                .forEach(encapsulatedProcessGroup -> authorizeProcessGroup(encapsulatedProcessGroup, authorizer, lookup, RequestAction.READ, false, false, false, false));
+                .forEach(encapsulatedProcessGroup -> authorizeProcessGroup(encapsulatedProcessGroup, authorizer, lookup, RequestAction.READ, false, false, false, false, false));
 
         processGroup.getEncapsulatedConnections().stream()
                 .map(ConnectionAuthorizable::getSourceData)
@@ -922,7 +922,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
 
                     // ensure write to this process group and all encapsulated components including controller services. additionally, ensure
                     // read to any referenced services by encapsulated components
-                    authorizeProcessGroup(processGroupAuthorizable, authorizer, lookup, RequestAction.WRITE, true, true, false, false);
+                    authorizeProcessGroup(processGroupAuthorizable, authorizer, lookup, RequestAction.WRITE, true, true, false, false, false);
 
                     // ensure write permission to the parent process group, if applicable... if this is the root group the
                     // request will fail later but still need to handle authorization here
@@ -2401,7 +2401,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
                 requestCopySnippetEntity,
                 lookup -> {
                     final NiFiUser user = NiFiUserUtils.getNiFiUser();
-                    final SnippetAuthorizable snippet = authorizeSnippetUsage(lookup, groupId, requestCopySnippetEntity.getSnippetId(), false, true);
+                    final SnippetAuthorizable snippet = authorizeSnippetUsage(lookup, groupId, requestCopySnippetEntity.getSnippetId(), false, true, true);
 
                     final Consumer<ComponentAuthorizable> authorizeRestricted = authorizable -> {
                         if (authorizable.isRestricted()) {
@@ -2455,7 +2455,8 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
     }
 
     private SnippetAuthorizable authorizeSnippetUsage(final AuthorizableLookup lookup, final String groupId, final String snippetId,
-                                                      final boolean authorizeTransitiveServices, final boolean authorizeParameterReferences) {
+                                                      final boolean authorizeTransitiveServices, final boolean authorizeParameterReferences,
+                                                      final boolean authorizeParameterContext) {
 
         final NiFiUser user = NiFiUserUtils.getNiFiUser();
 
@@ -2464,7 +2465,7 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
 
         // ensure read permission to every component in the snippet including referenced services
         final SnippetAuthorizable snippet = lookup.getSnippet(snippetId);
-        authorizeSnippet(snippet, authorizer, lookup, RequestAction.READ, true, authorizeTransitiveServices, authorizeParameterReferences);
+        authorizeSnippet(snippet, authorizer, lookup, RequestAction.READ, true, authorizeTransitiveServices, authorizeParameterReferences, authorizeParameterContext);
         return snippet;
     }
 
@@ -2985,50 +2986,87 @@ public class ProcessGroupResource extends FlowUpdateResource<ProcessGroupImportE
         final VersionedProcessGroup versionedProcessGroup = getVersionedProcessGroup(copyResponseEntity);
         mapVersionedIds(versionedProcessGroup, new HashMap<>(), new HashMap<>());
 
+        // resolve Bundle info
+        serviceFacade.discoverCompatibleBundles(versionedProcessGroup);
+
+        // prep a pasted flow snapshot to attempt to resolve external services and referenced parameter providers
+        final RegisteredFlowSnapshot pastedFlowSnapshot = new RegisteredFlowSnapshot();
+        pastedFlowSnapshot.setExternalControllerServices(copyResponseEntity.getExternalControllerServiceReferences());
+        pastedFlowSnapshot.setFlowContents(versionedProcessGroup);
+        pastedFlowSnapshot.setParameterContexts(copyResponseEntity.getParameterContexts());
+        pastedFlowSnapshot.setParameterProviders(copyResponseEntity.getParameterProviders());
+
+        // if there are any Controller Services referenced that are inherited from the parent group,
+        // resolve those to point to the appropriate Controller Service, if we are able to.
+        final FlowSnapshotContainer flowSnapshotContainer = new FlowSnapshotContainer(pastedFlowSnapshot);
+        serviceFacade.resolveInheritedControllerServices(flowSnapshotContainer, groupId, NiFiUserUtils.getNiFiUser());
+
+        // If there are any Parameter Providers referenced by Parameter Contexts, resolve these to point to the appropriate Parameter Provider, if we are able to.
+        final Set<String> unresolvedParameterProviders = serviceFacade.resolveParameterProviders(pastedFlowSnapshot, NiFiUserUtils.getNiFiUser());
+
         final Revision requestRevision = getRevision(pasteRequestEntity.getRevision(), groupId);
         return withWriteLock(
                 serviceFacade,
                 pasteRequestEntity,
                 requestRevision,
                 lookup -> {
-                    final Authorizable processGroup = lookup.getProcessGroup(groupId).getAuthorizable();
-                    processGroup.authorize(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser());
+                    final NiFiUser user = NiFiUserUtils.getNiFiUser();
 
+                    // ensure the user can write to the current group
+                    final Authorizable processGroup = lookup.getProcessGroup(groupId).getAuthorizable();
+                    processGroup.authorize(authorizer, RequestAction.WRITE, user);
+
+                    // if the pasted content contains restricted components, ensure the user is allowed those restrictions
                     final Set<ConfigurableComponent> restrictedComponents = FlowRegistryUtils.getRestrictedComponents(versionedProcessGroup, serviceFacade);
                     restrictedComponents.forEach(restrictedComponent -> {
                         final ComponentAuthorizable restrictedComponentAuthorizable = lookup.getConfigurableComponent(restrictedComponent);
                         authorizeRestrictions(authorizer, restrictedComponentAuthorizable);
                     });
 
+                    // if the pasted content contains parameter contexts, ensure the user can create them or add to existing matching contexts
+                    final Map<String, VersionedParameterContext> parameterContexts = copyResponseEntity.getParameterContexts();
+                    if (parameterContexts != null) {
+                        parameterContexts.values().forEach(context -> AuthorizeParameterReference.authorizeParameterContextAddition(context, serviceFacade, authorizer, lookup, user));
+                    }
+
+                    // unresolved parameter providers may be unresolved because
+                    // - the identifier matches an existing parameter provider id (unresolved because proposed id was unchanged from resolved id)
+                    // - an applicable parameter provider does not exist
+                    // - the user lacks permission to an applicable parameter provider
+                    // for everything unresolved, if it matches an existing parameter provider we need to authorize it.
+                    final Set<String> unknownParameterProviders = new HashSet<>(unresolvedParameterProviders);
+                    lookup.getParameterProviders(pp -> {
+                        // remove this identifier from unknown/unresolved since it actually exists locally
+                        unknownParameterProviders.remove(pp.getIdentifier());
+
+                        return unresolvedParameterProviders.contains(pp.getIdentifier());
+                    }).forEach(ca -> {
+                        ca.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+                    });
+
+                    // if there are remaining unknown parameter providers a new parameter provider will be created,
+                    // and we need to ensure the user has those permissions too
+                    if (!unknownParameterProviders.isEmpty()) {
+                        lookup.getController().authorize(authorizer, RequestAction.WRITE, NiFiUserUtils.getNiFiUser());
+                    }
+
+                    // if the pasted content contains instance ids, ensure the user can read those instances since sensitive values will be copied over
                     authorizeInstanceIds(versionedProcessGroup, lookup);
                 },
                 () -> serviceFacade.verifyComponentTypes(versionedProcessGroup),
                 (revision, requestPasteRequestEntity) -> {
                     final CopyResponseEntity requestCopyResponseEntity = requestPasteRequestEntity.getCopyResponse();
-                    final VersionedProcessGroup requestVersionedProcessGroup = getVersionedProcessGroup(requestCopyResponseEntity);
-
-                    // resolve Bundle info
-                    serviceFacade.discoverCompatibleBundles(requestVersionedProcessGroup);
-
-                    final RegisteredFlowSnapshot pastedFlowSnapshot = new RegisteredFlowSnapshot();
-                    pastedFlowSnapshot.setExternalControllerServices(requestCopyResponseEntity.getExternalControllerServiceReferences());
-                    pastedFlowSnapshot.setFlowContents(requestVersionedProcessGroup);
-
-                    // if there are any Controller Services referenced that are inherited from the parent group,
-                    // resolve those to point to the appropriate Controller Service, if we are able to.
-                    final FlowSnapshotContainer flowSnapshotContainer = new FlowSnapshotContainer(pastedFlowSnapshot);
-                    serviceFacade.resolveInheritedControllerServices(flowSnapshotContainer, groupId, NiFiUserUtils.getNiFiUser());
 
                     // prepare the request to add versioned components
                     final VersionedComponentAdditions additions = new VersionedComponentAdditions.Builder()
-                            .setProcessors(requestVersionedProcessGroup.getProcessors())
-                            .setInputPorts(requestVersionedProcessGroup.getInputPorts())
-                            .setOutputPorts(requestVersionedProcessGroup.getOutputPorts())
-                            .setFunnels(requestVersionedProcessGroup.getFunnels())
-                            .setLabels(requestVersionedProcessGroup.getLabels())
-                            .setProcessGroups(requestVersionedProcessGroup.getProcessGroups())
-                            .setRemoteProcessGroups(requestVersionedProcessGroup.getRemoteProcessGroups())
-                            .setConnections(requestVersionedProcessGroup.getConnections())
+                            .setProcessors(requestCopyResponseEntity.getProcessors())
+                            .setInputPorts(requestCopyResponseEntity.getInputPorts())
+                            .setOutputPorts(requestCopyResponseEntity.getOutputPorts())
+                            .setFunnels(requestCopyResponseEntity.getFunnels())
+                            .setLabels(requestCopyResponseEntity.getLabels())
+                            .setProcessGroups(requestCopyResponseEntity.getProcessGroups())
+                            .setRemoteProcessGroups(requestCopyResponseEntity.getRemoteProcessGroups())
+                            .setConnections(requestCopyResponseEntity.getConnections())
                             .setParameterContexts(requestCopyResponseEntity.getParameterContexts())
                             .setParameterProviders(requestCopyResponseEntity.getParameterProviders())
                             .build();

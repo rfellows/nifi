@@ -234,9 +234,9 @@ public abstract class FlowUpdateResource<T extends ProcessGroupDescriptorEntity,
         // Step 2: Verify READ and WRITE permissions for user, for every component.
         final ProcessGroupAuthorizable groupAuthorizable = lookup.getProcessGroup(groupId);
         authorizeProcessGroup(groupAuthorizable, authorizer, lookup, RequestAction.READ, true,
-                false, true, true);
+                false, true, false, true);
         authorizeProcessGroup(groupAuthorizable, authorizer, lookup, RequestAction.WRITE, true,
-                false, true, false);
+                false, true, false, false);
 
         final VersionedProcessGroup groupContents = flowSnapshot.getFlowContents();
         final Set<ConfigurableComponent> restrictedComponents = FlowRegistryUtils.getRestrictedComponents(groupContents, serviceFacade);

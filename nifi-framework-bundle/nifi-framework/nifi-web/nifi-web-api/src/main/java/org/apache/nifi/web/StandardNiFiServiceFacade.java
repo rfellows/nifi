@@ -4131,20 +4131,36 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
     }
 
     @Override
-    public void resolveParameterProviders(final RegisteredFlowSnapshot versionedFlowSnapshot, final NiFiUser user) {
+    public Set<String> resolveParameterProviders(final RegisteredFlowSnapshot versionedFlowSnapshot, final NiFiUser user) {
         final Map<String, ParameterProviderReference> parameterProviderReferences = versionedFlowSnapshot.getParameterProviders();
         if (parameterProviderReferences == null || parameterProviderReferences.isEmpty()
                 || versionedFlowSnapshot.getParameterContexts() == null || versionedFlowSnapshot.getParameterContexts().isEmpty()) {
-            return;
+            return Collections.emptySet();
         }
 
         final Set<ParameterProviderNode> parameterProviderNodes = parameterProviderDAO.getParameterProviders().stream()
                 .filter(provider -> provider.isAuthorized(authorizer, RequestAction.READ, user))
                 .collect(Collectors.toSet());
 
+        final Set<String> unresolvedParameterProviderIds = new HashSet<>();
         for (final VersionedParameterContext parameterContext : versionedFlowSnapshot.getParameterContexts().values()) {
-            resolveParameterProvider(parameterContext, parameterProviderNodes, parameterProviderReferences);
+            final String proposedParameterProviderId = parameterContext.getParameterProvider();
+
+            if (proposedParameterProviderId != null) {
+                // attempt to resolve the parameter provider
+                resolveParameterProvider(parameterContext, parameterProviderNodes, parameterProviderReferences);
+
+                // if the parameter provider is unchanged it means that the referenced provider is not in
+                // parameter provider nodes because it doesn't exist or the user does not have access to
+                // it. it could also be unchanged if the id already matches an available provider.
+                final String resolvedParameterProviderId = parameterContext.getParameterProvider();
+                if (proposedParameterProviderId.equals(resolvedParameterProviderId)) {
+                    unresolvedParameterProviderIds.add(proposedParameterProviderId);
+                }
+            }
         }
+
+        return unresolvedParameterProviderIds;
     }
 
     private void resolveParameterProvider(final VersionedParameterContext parameterContext, final Set<ParameterProviderNode> availableParameterProviders,

@@ -34,6 +34,14 @@ public interface ProcessGroupAuthorizable extends AuthorizableHolder {
     ProcessGroup getProcessGroup();
 
     /**
+     * Returns the Parameter Context Authorizable. May be null if the underlying Process Group is not
+     * bound to a Parameter Context.
+     *
+     * @return the Parameter Context authorizable
+     */
+    Authorizable getParameterContextAuthorizable();
+
+    /**
      * The authorizables for all encapsulated processors. Non null
      *
      * @return all encapsulated processors

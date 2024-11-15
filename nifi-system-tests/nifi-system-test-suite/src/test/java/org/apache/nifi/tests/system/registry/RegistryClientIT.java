@@ -30,6 +30,7 @@ import org.apache.nifi.web.api.dto.flow.FlowDTO;
 import org.apache.nifi.web.api.dto.flow.ProcessGroupFlowDTO;
 import org.apache.nifi.web.api.entity.ConnectionEntity;
 import org.apache.nifi.web.api.entity.ControllerServiceEntity;
+import org.apache.nifi.web.api.entity.CopyRequestEntity;
 import org.apache.nifi.web.api.entity.FlowEntity;
 import org.apache.nifi.web.api.entity.FlowRegistryClientEntity;
 import org.apache.nifi.web.api.entity.PortEntity;
@@ -391,8 +392,12 @@ public class RegistryClientIT extends NiFiSystemIT {
         terminate1 = getNifiClient().getProcessorClient().getProcessor(terminate1.getId());
         assertNotNull(terminate1.getComponent().getVersionedComponentId());
 
+        // Build the copy request
+        final CopyRequestEntity copyRequestEntity = new CopyRequestEntity();
+        copyRequestEntity.setProcessGroups(Set.of(inner1.getId()));
+
         // Copy and paste the inner Process Group
-        final FlowDTO flowDto = getClientUtil().copyAndPaste(inner1, outerGroup.getRevision(), outerGroup.getId());
+        final FlowDTO flowDto = getClientUtil().copyAndPaste(outerGroup.getId(), copyRequestEntity, outerGroup.getRevision(), outerGroup.getId());
         final ProcessGroupEntity inner2Entity = flowDto.getProcessGroups().iterator().next();
 
         final ProcessGroupFlowEntity inner2FlowEntity = getNifiClient().getFlowClient().getProcessGroup(inner2Entity.getId());
@@ -435,7 +440,12 @@ public class RegistryClientIT extends NiFiSystemIT {
         // This should result in the pasted Process Group having a processor with the same Versioned Component ID, because the Processors
         // have different Versioned groups, so they can have duplicate Versioned Component IDs.
         final ProcessGroupEntity topLevel2 = getClientUtil().createProcessGroup("Top Level 2", "root");
-        final FlowDTO flowDto = getClientUtil().copyAndPaste(innerGroup, topLevel1.getRevision(), topLevel2.getId());
+
+        // Build the request and copy and paste
+        final CopyRequestEntity copyRequestEntity = new CopyRequestEntity();
+        copyRequestEntity.setProcessGroups(Set.of(innerGroup.getId()));
+
+        final FlowDTO flowDto = getClientUtil().copyAndPaste(topLevel1.getId(), copyRequestEntity, topLevel2.getRevision(), topLevel2.getId());
         final String pastedGroupId = flowDto.getProcessGroups().iterator().next().getId();
         final ProcessGroupFlowEntity pastedGroupFlowEntity = getNifiClient().getFlowClient().getProcessGroup(pastedGroupId);
         final ProcessorEntity terminate2 = pastedGroupFlowEntity.getProcessGroupFlow().getFlow().getProcessors().iterator().next();

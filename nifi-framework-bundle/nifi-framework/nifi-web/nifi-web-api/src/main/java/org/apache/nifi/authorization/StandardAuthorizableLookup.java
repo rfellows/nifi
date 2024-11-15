@@ -398,6 +398,13 @@ public class StandardAuthorizableLookup implements AuthorizableLookup {
     }
 
     @Override
+    public Set<ComponentAuthorizable> getParameterProviders(Predicate<org.apache.nifi.authorization.resource.ComponentAuthorizable> filter) {
+        return parameterProviderDAO.getParameterProviders().stream()
+                .filter(filter)
+                .map(parameterProviderNode -> new ParameterProviderComponentAuthorizable(parameterProviderNode, controllerFacade.getExtensionManager())).collect(Collectors.toSet());
+    }
+
+    @Override
     public ComponentAuthorizable getParameterProvider(final String id) {
         final ParameterProviderNode parameterProviderNode = parameterProviderDAO.getParameterProvider(id);
         return new ParameterProviderComponentAuthorizable(parameterProviderNode, controllerFacade.getExtensionManager());
@@ -1214,6 +1221,11 @@ public class StandardAuthorizableLookup implements AuthorizableLookup {
         @Override
         public Authorizable getAuthorizable() {
             return processGroup;
+        }
+
+        @Override
+        public Authorizable getParameterContextAuthorizable() {
+            return processGroup.getParameterContext();
         }
 
         @Override

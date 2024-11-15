@@ -2173,11 +2173,8 @@ public class NiFiClientUtil {
             .orElse(null);
     }
 
-    public FlowDTO copyAndPaste(final ProcessGroupEntity pgEntity, final RevisionDTO revisionDTO, final String destinationGroupId) throws NiFiClientException, IOException {
-        final CopyRequestEntity copyRequestEntity = new CopyRequestEntity();
-        copyRequestEntity.setProcessGroups(Set.of(pgEntity.getId()));
-
-        final CopyResponseEntity copyResponseEntity = nifiClient.getProcessGroupClient().copy(pgEntity.getComponent().getParentGroupId(), copyRequestEntity);
+    public FlowDTO copyAndPaste(final String sourceGroupId, final CopyRequestEntity copyRequestEntity, final RevisionDTO revisionDTO, final String destinationGroupId) throws NiFiClientException, IOException {
+        final CopyResponseEntity copyResponseEntity = nifiClient.getProcessGroupClient().copy(sourceGroupId, copyRequestEntity);
 
         final PasteRequestEntity pasteRequestEntity = new PasteRequestEntity();
         pasteRequestEntity.setCopyResponse(copyResponseEntity);

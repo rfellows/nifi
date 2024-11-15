@@ -266,7 +266,8 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
         // add any process groups
         additions.getProcessGroups().forEach(processGroup -> {
             try {
-                final ProcessGroup newProcessGroup = addProcessGroup(group, processGroup, options.getComponentIdGenerator(), additions.getParameterContexts(), additions.getParameterProviders(), group);
+                final ProcessGroup newProcessGroup = addProcessGroup(group, processGroup, options.getComponentIdGenerator(),
+                        additions.getParameterContexts(), additions.getParameterProviders(), group);
                 additionsBuilder.addProcessGroup(newProcessGroup);
             } catch (final ProcessorInstantiationException pie) {
                 throw new RuntimeException(pie);

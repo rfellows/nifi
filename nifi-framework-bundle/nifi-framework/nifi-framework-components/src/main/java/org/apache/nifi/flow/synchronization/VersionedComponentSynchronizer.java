@@ -64,8 +64,8 @@ public interface VersionedComponentSynchronizer {
     /**
      * Verifies that the given additions can be applied to the specified process group.
      *
-     * @param group
-     * @param additions
+     * @param group the Process Group that will be appended to
+     * @param additions the component additions that will be added to the Process Group
      */
     void verifyCanAddVersionedComponents(ProcessGroup group, VersionedComponentAdditions additions);
 
