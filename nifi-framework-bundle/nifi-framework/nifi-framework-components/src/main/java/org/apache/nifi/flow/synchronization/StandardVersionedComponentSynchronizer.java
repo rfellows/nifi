@@ -204,17 +204,44 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             }
         });
 
+        // track the proposed port names so they can be updated after adding with guaranteed unique names
+        final Map<Port, String> proposedPortFinalNames = new HashMap<>();
+        final Set<String> existingInputPorts = group.getInputPorts().stream().map(Port::getName).collect(Collectors.toSet());
+        final Set<String> existingOutputPorts = group.getOutputPorts().stream().map(Port::getName).collect(Collectors.toSet());
+
         // add any input ports
         additions.getInputPorts().forEach(inputPort -> {
+            // if we're adding to the root group than ports must allow remote access
+            if (group.isRootGroup()) {
+                inputPort.setAllowRemoteAccess(true);
+            }
+
             final String temporaryName = generateTemporaryPortName(inputPort);
             final Port newInputPort = addInputPort(group, inputPort, options.getComponentIdGenerator(), temporaryName);
+
+            // if the proposed port name does not conflict with any existing ports include the proposed name for updating later
+            if (!existingInputPorts.contains(inputPort.getName())) {
+                proposedPortFinalNames.put(newInputPort, inputPort.getName());
+            }
+
             additionsBuilder.addInputPort(newInputPort);
         });
 
         // add any output ports
         additions.getOutputPorts().forEach(outputPort -> {
+            // if we're adding to the root group than ports must allow remote access
+            if (group.isRootGroup()) {
+                outputPort.setAllowRemoteAccess(true);
+            }
+
             final String temporaryName = generateTemporaryPortName(outputPort);
             final Port newOutputPort = addOutputPort(group, outputPort, options.getComponentIdGenerator(), temporaryName);
+
+            // if the proposed port name does not conflict with any existing ports include the proposed name for updating later
+            if (!existingOutputPorts.contains(outputPort.getName())) {
+                proposedPortFinalNames.put(newOutputPort, outputPort.getName());
+            }
+
             additionsBuilder.addOutputPort(newOutputPort);
         });
 
@@ -260,6 +287,9 @@ public class StandardVersionedComponentSynchronizer implements VersionedComponen
             final Connection newConnection = addConnection(group, connection, options.getComponentIdGenerator());
             additionsBuilder.addConnection(newConnection);
         });
+
+        // update ports to final names
+        updatePortsToFinalNames(proposedPortFinalNames);
 
         for (final CreatedOrModifiedExtension createdOrModifiedExtension : createdAndModifiedExtensions) {
             final ComponentNode extension = createdOrModifiedExtension.extension();
