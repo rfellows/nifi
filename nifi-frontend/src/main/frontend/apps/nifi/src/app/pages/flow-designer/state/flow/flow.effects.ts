@@ -2313,7 +2313,8 @@ export class FlowEffects {
                 };
                 const pasteRequestContext: PasteRequestContext = {
                     pasteRequest: payload,
-                    processGroupId
+                    processGroupId,
+                    pasteStrategy: pasteRequest.strategy
                 };
                 return from(this.copyPasteService.paste(pasteRequestContext)).pipe(
                     map((response) => {
@@ -2412,7 +2413,8 @@ export class FlowEffects {
                     CopyActions.contentPasted({
                         pasted: {
                             copyId: response.pasteRequest.copyResponse.id,
-                            processGroupId: currentProcessGroupId
+                            processGroupId: currentProcessGroupId,
+                            strategy: response.pasteRequest.strategy
                         }
                     })
                 );

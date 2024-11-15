@@ -274,8 +274,6 @@ export class CanvasView {
             return false;
         }
 
-        const yOffset = canvasContainer.getBoundingClientRect().top;
-
         // scale the translation
         const translate = [this.x / this.k, this.y / this.k];
 
@@ -291,8 +289,8 @@ export class CanvasView {
 
         const left = Math.ceil(boundingBox.x);
         const right = Math.floor(boundingBox.x + boundingBox.width);
-        const top = Math.ceil(boundingBox.y - yOffset / this.k);
-        const bottom = Math.floor(boundingBox.y - yOffset / this.k + boundingBox.height);
+        const top = Math.ceil(boundingBox.y);
+        const bottom = Math.floor(boundingBox.y + boundingBox.height);
 
         if (strict) {
             return !(left < screenLeft || right > screenRight || top < screenTop || bottom > screenBottom);

@@ -32,7 +32,7 @@ import {
 import { HttpErrorResponse } from '@angular/common/http';
 import { BackNavigation } from '../../../../state/navigation';
 import { ComponentType, SelectOption } from 'libs/shared/src';
-import { CopyResponseEntity } from '../../../../state/copy';
+import { CopyResponseEntity, PasteRequestStrategy } from '../../../../state/copy';
 
 export const flowFeatureKey = 'flowState';
 
@@ -457,6 +457,7 @@ export interface MoveComponentsRequest {
 ///////////////////////////////////////////////////////////
 export interface PasteRequest {
     copyResponse: CopyResponseEntity;
+    strategy: PasteRequestStrategy;
     fitToScreen?: boolean;
     bbox?: any;
 }
@@ -468,6 +469,7 @@ export interface PasteRequestEntity {
 export interface PasteRequestContext {
     processGroupId: string;
     pasteRequest: PasteRequestEntity;
+    pasteStrategy: PasteRequestStrategy;
 }
 export interface PasteResponseEntity {
     flow: Flow;

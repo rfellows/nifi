@@ -17,7 +17,7 @@
  * under the License.
  */
 
-import { CopyState } from './index';
+import { CopyState, PasteRequestStrategy } from './index';
 import { createReducer, on } from '@ngrx/store';
 import { contentPasted, resetCopiedContent, setCopiedContent } from './copy.actions';
 import { produce } from 'immer';
@@ -33,9 +33,10 @@ export const copyReducer = createReducer(
         copiedContent: content
     })),
     on(contentPasted, (state, { pasted }) => {
-        // update the paste count of the copied content if it was pasted
+        // update the paste count if it was pasted with an OFFSET strategy to influence positioning of future pastes
         return produce(state, (draftState) => {
             if (
+                pasted.strategy === PasteRequestStrategy.OFFSET_FROM_ORIGINAL &&
                 draftState.copiedContent &&
                 draftState.copiedContent.copyResponse.id === pasted.copyId &&
                 draftState.copiedContent.processGroupId === pasted.processGroupId

@@ -56,9 +56,16 @@ export interface CopyResponseEntity {
     parameterContexts?: { [key: string]: any };
     parameterProviders?: { [key: string]: any };
 }
+
+export enum PasteRequestStrategy {
+    CENTER_ON_CANVAS,
+    OFFSET_FROM_ORIGINAL
+}
+
 export interface CopiedContentInfo {
     copyId: string;
     processGroupId: string;
+    strategy: PasteRequestStrategy;
 }
 
 export interface CopyState {

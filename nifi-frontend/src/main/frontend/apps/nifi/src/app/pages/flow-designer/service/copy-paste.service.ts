@@ -24,7 +24,7 @@ import { Observable } from 'rxjs';
 import { ClusterConnectionService } from '../../../service/cluster-connection.service';
 import { Position } from '../state/shared';
 import { CanvasView } from './canvas-view.service';
-import { CopyRequestContext, CopyResponseEntity } from '../../../state/copy';
+import { CopyRequestContext, CopyResponseEntity, PasteRequestStrategy } from '../../../state/copy';
 
 @Injectable({
     providedIn: 'root'
@@ -71,7 +71,8 @@ export class CopyPasteService {
     public toOffsetPasteRequest(copyResponse: CopyResponseEntity, pasteIncrement: number = 0): PasteRequest {
         const offset = 25;
         const paste: PasteRequest = {
-            copyResponse: this.cloneCopyResponseEntity(copyResponse)
+            copyResponse: this.cloneCopyResponseEntity(copyResponse),
+            strategy: PasteRequestStrategy.OFFSET_FROM_ORIGINAL
         };
 
         Object.values(paste.copyResponse)
@@ -102,7 +103,8 @@ export class CopyPasteService {
      */
     public toCenteredPasteRequest(copyResponse: CopyResponseEntity): PasteRequest {
         const paste: PasteRequest = {
-            copyResponse: this.cloneCopyResponseEntity(copyResponse)
+            copyResponse: this.cloneCopyResponseEntity(copyResponse),
+            strategy: PasteRequestStrategy.CENTER_ON_CANVAS
         };
 
         // get center of canvas
@@ -221,8 +223,8 @@ export class CopyPasteService {
         const bbox = {
             left: Number.MAX_SAFE_INTEGER,
             top: Number.MAX_SAFE_INTEGER,
-            right: 0,
-            bottom: 0
+            right: Number.MIN_SAFE_INTEGER,
+            bottom: Number.MIN_SAFE_INTEGER
         };
         Object.values(copyResponse)
             .flat()
