@@ -5235,7 +5235,7 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
                 .mapSensitiveConfiguration(false)
                 .mapInstanceIdentifiers(true)
                 .mapControllerServiceReferencesToVersionedId(true)
-                .mapFlowRegistryClientId(false)
+                .mapFlowRegistryClientId(true)
                 .mapAssetReferences(false)
                 .build();
 
